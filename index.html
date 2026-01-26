@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Presupuestador Rápido</title>
+    
+    <!-- PWA: Color de tema para la barra de estado (Android/iOS) -->
+    <meta name="theme-color" content="#008069">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Presupuestos">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Iconos (Phosphor Icons) -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <style>
+        body {
+            -webkit-tap-highlight-color: transparent;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .card-transition { transition: background-color 0.2s, border-color 0.2s, transform 0.1s; }
+        .ease-spring { transition-timing-function: cubic-bezier(0.05, 0.7, 0.1, 1.0); }
+        #toast {
+            visibility: hidden; opacity: 0; transition: opacity 0.3s, bottom 0.3s;
+        }
+        #toast.show {
+            visibility: visible; opacity: 1; bottom: 100px;
+        }
+        /* Puntos de paginación del tutorial */
+        .dot { transition: all 0.3s; }
+        .dot.active { background-color: #008069; transform: scale(1.2); }
+    </style>
+
+    <!-- SCRIPT PWA: Generación dinámica del Manifiesto e Iconos -->
+    <script>
+        (function() {
+            // 1. Icono Base64 (SVG minimalista verde)
+            const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="100" fill="#008069"/><path d="M386 166c-13-13-33-16-56-11l-35 8c-63 15-119 71-134 134l-8 35c-5 23-2 43 11 56 16 16 43 16 71-11l9-8c4-4 10-4 14 0l46 46c4 4 4 10 0 14l-8 9c-27 28-27 55-11 71 21 21 68 12 101-20l46-46c33-33 42-80 21-101-16-16-43-16-71 11l-9 8c-4 4-10 4-14 0l-46-46c-4-4-4-10 0-14l8-9c27-28 27-55 11-71z" fill="white" opacity="0.3"/><path d="M256 64C150 64 64 150 64 256s86 192 192 192 192-86 192-192S362 64 256 64zm0 336c-79.5 0-144-64.5-144-144S176.5 112 256 112s144 64.5 144 144-64.5 144-144 144zm-16-224h-32v96h-64v32h64v64h32v-64h64v-32h-64v-96z" fill="white"/></svg>`;
+            const iconUrl = "data:image/svg+xml;base64," + btoa(iconSvg);
+
+            // 2. Inyectar Favicon
+            const linkIcon = document.createElement('link');
+            linkIcon.rel = 'icon';
+            linkIcon.href = iconUrl;
+            document.head.appendChild(linkIcon);
+
+            // 3. Inyectar Apple Touch Icon
+            const linkApple = document.createElement('link');
+            linkApple.rel = 'apple-touch-icon';
+            linkApple.href = iconUrl;
+            document.head.appendChild(linkApple);
+
+            // 4. Construir y Linkear Manifiesto
+            const manifest = {
+                "name": "Presupuestador Rápido",
+                "short_name": "Presupuestos",
+                "start_url": ".",
+                "display": "standalone",
+                "background_color": "#ffffff",
+                "theme_color": "#008069",
+                "orientation": "portrait",
+                "icons": [{
+                    "src": iconUrl,
+                    "sizes": "192x192",
+                    "type": "image/svg+xml"
+                }, {
+                    "src": iconUrl,
+                    "sizes": "512x512",
+                    "type": "image/svg+xml"
+                }]
+            };
+            const manifestUrl = "data:application/manifest+json;base64," + btoa(JSON.stringify(manifest));
+            const linkManifest = document.createElement('link');
+            linkManifest.rel = 'manifest';
+            linkManifest.href = manifestUrl;
+            document.head.appendChild(linkManifest);
+        })();
+    </script>
+</head>
+<body class="bg-gray-100 h-[100dvh] flex flex-col text-gray-800 overflow-hidden">
+
+    <!-- 1. HEADER -->
+    <header class="bg-[#008069] text-white p-4 shadow-md z-20 shrink-0">
+        <div class="flex justify-between items-center max-w-7xl mx-auto">
+            <h1 class="font-bold text-lg flex items-center gap-2">
+                <i class="ph ph-whatsapp-logo text-2xl"></i>
+                Presupuestos
+            </h1>
+            <div class="flex gap-2">
+                <!-- Botón Ayuda / Tutorial -->
+                <button onclick="startTutorial()" class="p-2 rounded-full hover:bg-[#006653] transition" aria-label="Ayuda">
+                    <i class="ph ph-question text-xl"></i>
+                </button>
+                <button onclick="toggleConfig()" class="p-2 rounded-full hover:bg-[#006653] transition" aria-label="Configuración">
+                    <i class="ph ph-gear text-xl"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Alerta de Datos Viejos -->
+        <div id="staleDataAlert" class="hidden mt-2 bg-yellow-100 text-yellow-800 text-xs px-3 py-1 rounded border border-yellow-200 flex items-center gap-2">
+            <i class="ph ph-warning"></i>
+            <span>Datos desactualizados (+24h). Actualiza en configuración.</span>
+        </div>
+    </header>
+
+    <!-- 2. SEARCH BAR (Sticky) -->
+    <div class="bg-white p-3 shadow-sm z-10 shrink-0">
+        <div class="max-w-7xl mx-auto relative">
+            <i class="ph ph-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-lg"></i>
+            <input type="text" id="searchInput" placeholder="Buscar producto..." 
+                   class="w-full pl-10 pr-10 py-3 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#008069] text-base"
+                   autocomplete="off">
+            <button id="clearSearch" class="hidden absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 p-1" onclick="clearInput()">
+                <i class="ph ph-x-circle text-lg"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- 3. PRODUCT LIST AREA -->
+    <main class="flex-1 overflow-y-auto no-scrollbar p-3 pb-40" id="mainContainer">
+        <div id="productList" class="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            <div class="col-span-full text-center text-gray-400 mt-10">
+                <i class="ph ph-basket text-4xl mb-2"></i>
+                <p>Cargando productos o configura la URL...</p>
+            </div>
+        </div>
+        <div id="limitMessage" class="hidden text-center text-gray-400 text-sm mt-4 pb-4">
+            Mostrando los primeros 100 resultados. Usa el buscador para filtrar.
+        </div>
+    </main>
+
+    <!-- 4. FOOTER / CART BAR -->
+    <div id="cartFooter" class="fixed bottom-0 left-0 w-full bg-white border-t shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] transform translate-y-full transition-transform duration-300 z-40 pb-[env(safe-area-inset-bottom)]">
+        <div class="max-w-7xl mx-auto p-4 flex justify-between items-center">
+            <div class="flex flex-col cursor-pointer select-none group" onclick="toggleCartView()">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-gray-500 font-medium group-hover:text-[#008069] transition-colors" id="itemCount">0 ítems</span>
+                    <div class="bg-gray-100 rounded-full p-0.5 group-hover:bg-green-50">
+                        <i class="ph ph-caret-up text-gray-500 text-xs font-bold"></i>
+                    </div>
+                </div>
+                <div class="flex items-baseline gap-1">
+                    <span class="text-xl font-bold text-[#008069]" id="totalAmount">$0,00</span>
+                    <span class="text-[10px] text-gray-400 font-medium uppercase tracking-wide">Ver detalle</span>
+                </div>
+            </div>
+            
+            <div class="flex gap-3">
+                <button onclick="shareToWhatsApp()" class="bg-white border-2 border-[#25D366] text-[#25D366] hover:bg-green-50 font-bold p-3 rounded-full shadow-md flex items-center justify-center active:scale-95 transition-transform" aria-label="Enviar a WhatsApp">
+                    <i class="ph ph-whatsapp-logo text-2xl"></i>
+                </button>
+                <button onclick="copyBudget()" class="bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold py-3 px-6 rounded-full shadow-lg flex items-center gap-2 active:scale-95 transition-transform">
+                    <span>Copiar</span>
+                    <i class="ph ph-copy text-lg"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 6. CART MODAL VIEW -->
+    <div id="cartModal" class="fixed inset-0 bg-gray-50 z-50 flex flex-col h-[100dvh] transform transition-transform duration-500 ease-spring translate-y-full shadow-2xl">
+        <div class="bg-white p-4 shadow-sm flex justify-between items-center shrink-0 border-b z-10">
+            <h2 class="font-bold text-lg flex items-center gap-2 text-gray-800">
+                <i class="ph ph-shopping-cart text-[#008069] text-xl"></i>
+                Resumen del Pedido
+            </h2>
+            <button onclick="toggleCartView()" class="p-2 rounded-full hover:bg-gray-100 text-gray-500 active:scale-95 transition-transform">
+                <i class="ph ph-caret-down text-2xl"></i>
+            </button>
+        </div>
+        
+        <div id="cartListContainer" class="flex-1 overflow-y-auto p-4 pb-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 content-start">
+            <!-- Se llena via JS -->
+        </div>
+
+        <div class="bg-white border-t p-4 shrink-0 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_15px_rgba(0,0,0,0.05)]">
+            <div class="flex justify-between items-end mb-4 px-1">
+                <span class="text-gray-500 font-medium">Total Final</span>
+                <span class="text-3xl font-bold text-[#008069]" id="cartModalTotal">$0,00</span>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                 <button onclick="shareToWhatsApp()" class="bg-white border-2 border-[#25D366] text-[#25D366] font-bold py-3.5 rounded-xl shadow-sm flex items-center justify-center gap-2 active:bg-green-50 active:scale-[0.98] transition-transform">
+                    <i class="ph ph-whatsapp-logo text-xl"></i> WhatsApp
+                 </button>
+                 <button onclick="copyBudget()" class="bg-[#25D366] text-white font-bold py-3.5 rounded-xl shadow-lg flex items-center justify-center gap-2 active:bg-[#1da851] active:scale-[0.98] transition-transform">
+                    <i class="ph ph-copy text-xl"></i> Copiar
+                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. CONFIG MODAL (Con Botón de Instalar PWA) -->
+    <div id="configModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white w-11/12 max-w-md rounded-xl shadow-2xl overflow-hidden">
+            <div class="bg-[#008069] text-white p-4 flex justify-between items-center">
+                <h2 class="font-bold">Configuración</h2>
+                <button onclick="toggleConfig()" class="p-1"><i class="ph ph-x text-xl"></i></button>
+            </div>
+            <div class="p-6 space-y-4">
+                
+                <!-- Botón de Instalación (Dinámico) -->
+                <div id="installContainer" class="hidden mb-4 p-3 bg-green-50 rounded-lg border border-green-200 shadow-sm">
+                     <!-- El contenido se inyecta via JS dependiendo del dispositivo -->
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">URL del CSV (Google Sheets)</label>
+                    <input type="text" id="csvUrlInput" placeholder="https://docs.google.com/spreadsheets/..." 
+                           class="w-full border p-3 rounded-lg text-sm focus:ring-2 focus:ring-[#008069] outline-none">
+                    <p class="text-xs text-gray-500 mt-1">Archivo > Compartir > Publicar en la web > CSV</p>
+                </div>
+                
+                <div class="flex justify-between items-center bg-gray-50 p-3 rounded text-sm">
+                    <span class="text-gray-600">Última actualización:</span>
+                    <span id="lastUpdatedDate" class="font-mono font-bold">Nunca</span>
+                </div>
+
+                <div class="pt-2 flex gap-3">
+                    <button onclick="fetchData()" class="flex-1 bg-blue-600 text-white py-3 rounded-lg font-medium active:bg-blue-700 flex justify-center items-center gap-2">
+                        <i class="ph ph-arrows-clockwise"></i> Actualizar Datos
+                    </button>
+                </div>
+                
+                <div class="border-t pt-4">
+                     <button onclick="clearData()" class="w-full text-red-500 text-sm py-2 hover:bg-red-50 rounded">
+                        Borrar caché y reiniciar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7. TUTORIAL / ONBOARDING MODAL -->
+    <div id="tutorialModal" class="fixed inset-0 bg-black/80 z-[60] hidden flex items-center justify-center p-4 backdrop-blur-sm transition-opacity duration-300">
+        <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden relative flex flex-col min-h-[400px]">
+            <!-- Close Button -->
+            <button onclick="closeTutorial(true)" class="absolute top-3 right-3 p-2 text-gray-400 hover:text-gray-600 z-10">
+                <i class="ph ph-x text-xl"></i>
+            </button>
+
+            <!-- Slides Container -->
+            <div id="tutorialSlides" class="flex-1 p-8 flex flex-col items-center justify-center text-center">
+                <!-- El contenido se inyecta via JS -->
+            </div>
+
+            <!-- Footer con Botones -->
+            <div class="p-4 border-t bg-gray-50 flex justify-between items-center">
+                <div class="flex gap-1.5" id="tutorialDots">
+                    <!-- Dots generados via JS -->
+                </div>
+                <button id="tutorialNextBtn" onclick="nextTutorialStep()" class="bg-[#008069] text-white px-6 py-2 rounded-full font-bold text-sm shadow active:scale-95 transition-transform">
+                    Siguiente
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast" class="fixed left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-lg text-sm font-medium z-50 flex items-center gap-2">
+        <i class="ph ph-check-circle text-green-400 text-lg"></i>
+        <span id="toastMsg">Copiado al portapapeles</span>
+    </div>
+
+    <script>
+        // ==========================================
+        //  CONFIGURACIÓN FIJA (OPCIONAL)
+        const URL_FIJA_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS8v6EfTn5QfJPDmaCZRfFaAmkdopFrYPBh9N0s3ifH3_q257I_zgXxNz-GJUByuQbAgc0kfeXLZEJZ/pub?gid=1147648108&single=true&output=csv"; 
+        // ==========================================
+
+        // --- HELPER OPTIMIZADO PARA TEXTO ---
+        const normalize = (str) => {
+            if (!str) return "";
+            return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        };
+
+        // --- ESTADO DE LA APLICACIÓN ---
+        const state = {
+            products: [],   // { id, name, price, priceRaw, presentation, searchString }
+            cart: {},       // { id: qty }
+            config: {
+                url: '',
+                lastUpdated: 0
+            }
+        };
+
+        // --- PWA INSTALLATION LOGIC ---
+        let deferredPrompt;
+        
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            showInstallUI('android');
+        });
+
+        function showInstallUI(type) {
+            const container = document.getElementById('installContainer');
+            container.classList.remove('hidden');
+            
+            if (type === 'ios') {
+                container.innerHTML = `
+                    <p class="text-xs text-green-800 mb-2 font-bold flex items-center gap-1">
+                        <i class="ph ph-apple-logo text-lg"></i> Instalación en iPhone/iPad
+                    </p>
+                    <div class="text-sm text-gray-700 bg-white p-3 rounded border border-green-100">
+                        <ol class="list-decimal ml-4 space-y-1">
+                            <li>Toca el botón <b>Compartir</b> <i class="ph ph-share-network"></i> abajo.</li>
+                            <li>Baja y selecciona <b>Agregar a Inicio</b> <i class="ph ph-plus-square"></i>.</li>
+                        </ol>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `
+                     <p class="text-xs text-green-700 mb-2 font-medium">Instala esta app para un acceso más rápido</p>
+                     <button id="installBtn" class="w-full bg-[#008069] text-white py-2 rounded-lg font-bold text-sm shadow flex justify-center items-center gap-2 active:bg-[#006653]">
+                        <i class="ph ph-download-simple"></i> Instalar App
+                     </button>
+                `;
+                
+                document.getElementById('installBtn').onclick = async () => {
+                    if (deferredPrompt) {
+                        deferredPrompt.prompt();
+                        const { outcome } = await deferredPrompt.userChoice;
+                        if (outcome === 'accepted') {
+                            container.classList.add('hidden');
+                        }
+                        deferredPrompt = null;
+                    }
+                };
+            }
+        }
+
+        // --- TUTORIAL LOGIC ---
+        const tutorialSteps = [
+            {
+                icon: "ph-magnifying-glass",
+                title: "Búsqueda Inteligente",
+                text: "Encuentra productos por nombre, marca o tipo. <br><b>No importa el orden de las palabras</b>."
+            },
+            {
+                icon: "ph-hand-tap",
+                title: "Selección Rápida",
+                text: "Toca una tarjeta para agregar 1 unidad. <br>Si seleccionas <b>un solo producto</b>, ¡se copia automáticamente al portapapeles!"
+            },
+            {
+                icon: "ph-shopping-cart",
+                title: "Tu Pedido",
+                text: "Toca la barra inferior para ver el detalle. Envía todo el presupuesto por <b>WhatsApp</b> o cópialo con un clic."
+            },
+            {
+                icon: "ph-gear",
+                title: "Configuración",
+                text: "Usa el ícono ⚙️ para actualizar precios desde tu <b>Google Sheet</b>. La app funciona sin internet una vez cargada."
+            }
+        ];
+
+        let currentStep = 0;
+
+        function startTutorial() {
+            currentStep = 0;
+            renderTutorialStep();
+            document.getElementById('tutorialModal').classList.remove('hidden');
+        }
+
+        function closeTutorial(permanent = false) {
+            document.getElementById('tutorialModal').classList.add('hidden');
+            if (permanent) {
+                localStorage.setItem('tutorial_seen', 'true');
+            }
+        }
+
+        function nextTutorialStep() {
+            if (currentStep < tutorialSteps.length - 1) {
+                currentStep++;
+                renderTutorialStep();
+            } else {
+                closeTutorial(true);
+            }
+        }
+
+        function renderTutorialStep() {
+            const slide = tutorialSteps[currentStep];
+            const container = document.getElementById('tutorialSlides');
+            const dotsContainer = document.getElementById('tutorialDots');
+            const btn = document.getElementById('tutorialNextBtn');
+
+            // Render Slide Content
+            container.innerHTML = `
+                <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6 text-[#008069]">
+                    <i class="ph ${slide.icon} text-4xl"></i>
+                </div>
+                <h3 class="text-xl font-bold text-gray-800 mb-3">${slide.title}</h3>
+                <p class="text-gray-600 leading-relaxed">${slide.text}</p>
+            `;
+
+            // Render Dots
+            dotsContainer.innerHTML = tutorialSteps.map((_, idx) => `
+                <div class="w-2.5 h-2.5 rounded-full dot ${idx === currentStep ? 'active' : 'bg-gray-300'}"></div>
+            `).join('');
+
+            // Update Button Text
+            btn.textContent = currentStep === tutorialSteps.length - 1 ? "¡Entendido!" : "Siguiente";
+        }
+
+        // --- INICIALIZACIÓN ---
+        document.addEventListener('DOMContentLoaded', () => {
+            loadState();
+            setupSearch();
+            setupConfigInput();
+            renderList();
+            checkStaleData();
+            
+            // Check Tutorial
+            if (!localStorage.getItem('tutorial_seen')) {
+                // Pequeño delay para que cargue la UI primero
+                setTimeout(() => startTutorial(), 1000);
+            }
+
+            // Detect iOS for instructions
+            const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+            
+            if (isIos && !isStandalone) {
+                showInstallUI('ios');
+            }
+
+            if ('serviceWorker' in navigator) {
+                try {
+                    const swCode = "self.addEventListener('fetch', () => {}); self.addEventListener('install', () => self.skipWaiting());";
+                    const blob = new Blob([swCode], {type: 'text/javascript'});
+                    const swUrl = URL.createObjectURL(blob);
+                    navigator.serviceWorker.register(swUrl).catch(() => {});
+                } catch(e) {}
+            }
+        });
+
+        function setupConfigInput() {
+            const input = document.getElementById('csvUrlInput');
+            const save = () => {
+                state.config.url = input.value.trim();
+                saveConfig();
+            };
+            input.addEventListener('input', save);
+            input.addEventListener('change', save);
+        }
+
+        // --- GESTIÓN DE DATOS ---
+        function loadState() {
+            const storedConfig = localStorage.getItem('app_config');
+            if (storedConfig) {
+                try {
+                    const parsed = JSON.parse(storedConfig);
+                    state.config = { ...state.config, ...parsed };
+                } catch (e) { console.error(e); }
+            }
+
+            if (!state.config.url && URL_FIJA_CSV) {
+                state.config.url = URL_FIJA_CSV;
+            }
+            
+            const storedProducts = localStorage.getItem('app_products');
+            if (storedProducts) {
+                try {
+                    state.products = JSON.parse(storedProducts);
+                } catch(e) {}
+            }
+
+            document.getElementById('csvUrlInput').value = state.config.url || '';
+            updateLastUpdatedLabel();
+        }
+
+        function saveConfig() {
+            localStorage.setItem('app_config', JSON.stringify(state.config));
+        }
+
+        function updateLastUpdatedLabel() {
+            const dateSpan = document.getElementById('lastUpdatedDate');
+            if (state.config.lastUpdated === 0) {
+                dateSpan.textContent = "Nunca";
+            } else {
+                const date = new Date(state.config.lastUpdated);
+                dateSpan.textContent = date.toLocaleString('es-AR');
+            }
+        }
+
+        async function fetchData() {
+            let url = document.getElementById('csvUrlInput').value.trim();
+            if (!url && URL_FIJA_CSV) url = URL_FIJA_CSV;
+
+            if (!url) return showToast("Ingresa una URL válida");
+
+            document.getElementById('csvUrlInput').value = url;
+            state.config.url = url;
+            saveConfig();
+
+            const btn = document.querySelector('#configModal button i.ph-arrows-clockwise');
+            btn.classList.add('animate-spin');
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error("Error de red");
+                const text = await response.text();
+                
+                parseCSV(text);
+                
+                state.config.lastUpdated = Date.now();
+                saveConfig();
+                
+                localStorage.setItem('app_products', JSON.stringify(state.products));
+                
+                updateLastUpdatedLabel();
+                renderList();
+                checkStaleData();
+                toggleConfig(); 
+                showToast(`Se cargaron ${state.products.length} productos`);
+
+            } catch (error) {
+                let msg = "Error al cargar el CSV: " + error.message;
+                
+                // Detección de error por protocolo local (file:// o content://)
+                // Esto sucede si el usuario no alojó la app y la abrió desde "Mis Archivos"
+                const isLocal = window.location.protocol === 'file:' || window.location.protocol === 'content:';
+                
+                if (isLocal && (error.message.includes('Failed to fetch') || error.message.includes('NetworkError'))) {
+                    msg = "⚠️ ERROR DE SEGURIDAD (CORS)\n\n" +
+                          "Estás abriendo el archivo directamente desde tu celular.\n" +
+                          "Por seguridad, los navegadores bloquean la conexión a internet de archivos locales.\n\n" +
+                          "SOLUCIÓN: Sube este archivo a Netlify Drop o GitHub Pages para que tenga una dirección 'https://'.";
+                }
+                
+                alert(msg);
+                console.error(error);
+            } finally {
+                btn.classList.remove('animate-spin');
+            }
+        }
+
+        function parseCSV(csvText) {
+            const lines = csvText.split(/\r\n|\n/);
+            const products = [];
+            
+            lines.forEach((line, index) => {
+                if (!line.trim()) return;
+
+                const cols = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(col => {
+                    return col.trim().replace(/^"|"$/g, '').replace(/""/g, '"');
+                });
+                
+                if (cols.length >= 2) {
+                    const name = cols[0];
+                    const priceStr = cols[1];
+                    let presentation = '';
+                    if (cols.length >= 3) presentation = cols[2];
+                    
+                    const price = parseLocaleNumber(priceStr);
+
+                    if (name && !isNaN(price) && price > 0) {
+                        const searchString = normalize(name + ' ' + presentation);
+                        products.push({
+                            id: index,
+                            name: name,
+                            price: price,
+                            priceRaw: priceStr,
+                            presentation: presentation,
+                            searchString: searchString
+                        });
+                    }
+                }
+            });
+
+            state.products = products;
+        }
+
+        function parseLocaleNumber(stringNumber) {
+            let clean = stringNumber.replace(/[$ "\s]/g, '');
+            if (clean.indexOf('.') !== -1 && clean.indexOf(',') !== -1) {
+                clean = clean.replace(/\./g, '').replace(',', '.');
+            } else if (clean.indexOf(',') !== -1) {
+                clean = clean.replace(',', '.');
+            } else if (clean.indexOf('.') !== -1) {
+                clean = clean.replace(/\./g, '');
+            }
+            return parseFloat(clean);
+        }
+
+        function checkStaleData() {
+            const alert = document.getElementById('staleDataAlert');
+            const oneDay = 24 * 60 * 60 * 1000;
+            if (state.config.lastUpdated > 0 && (Date.now() - state.config.lastUpdated > oneDay)) {
+                alert.classList.remove('hidden');
+            } else {
+                alert.classList.add('hidden');
+            }
+        }
+
+        // --- RENDERIZADO OPTIMIZADO ---
+        function renderList(filterText = '') {
+            const list = document.getElementById('productList');
+            const limitMsg = document.getElementById('limitMessage');
+            list.innerHTML = '';
+
+            const cleanFilter = normalize(filterText).trim();
+            let filtered = state.products;
+
+            if (cleanFilter) {
+                const terms = cleanFilter.split(/\s+/);
+                filtered = state.products.filter(p => {
+                    return terms.every(term => p.searchString.includes(term));
+                });
+            }
+
+            if (filtered.length === 0) {
+                list.innerHTML = `<div class="col-span-full text-center text-gray-400 mt-10">No se encontraron productos</div>`;
+                limitMsg.classList.add('hidden');
+                return;
+            }
+
+            const MAX_ITEMS = 100;
+            const itemsToShow = filtered.slice(0, MAX_ITEMS);
+            
+            if (filtered.length > MAX_ITEMS) {
+                limitMsg.classList.remove('hidden');
+            } else {
+                limitMsg.classList.add('hidden');
+            }
+
+            const fragment = document.createDocumentFragment();
+
+            itemsToShow.forEach(p => {
+                const qty = state.cart[p.id] || 0;
+                const isSelected = qty > 0;
+                
+                const el = document.createElement('div');
+                el.id = `card-${p.id}`;
+                el.className = `p-3 rounded-xl shadow-sm border card-transition cursor-pointer select-none flex flex-col justify-between h-full ${isSelected ? 'bg-green-50 border-[#25D366] ring-1 ring-[#25D366]' : 'bg-white border-gray-200 hover:border-gray-300'}`;
+                el.onclick = (e) => handleCardClick(e, p.id);
+
+                const formattedPrice = formatMoney(p.price);
+                const presentationBadge = p.presentation 
+                    ? `<span class="inline-block mt-1 bg-gray-100 text-gray-500 text-[10px] font-semibold px-2 py-0.5 rounded border border-gray-200 uppercase tracking-wide">${p.presentation}</span>` 
+                    : '';
+
+                el.innerHTML = `
+                    <div class="flex-1 w-full flex flex-col items-start">
+                        <h3 id="name-${p.id}" class="font-medium text-gray-800 text-sm leading-snug w-full line-clamp-2 ${isSelected ? 'text-[#008069] font-bold' : ''}">${p.name}</h3>
+                        ${presentationBadge}
+                        <p class="text-[#008069] font-bold mt-2 text-base">${formattedPrice}</p>
+                    </div>
+                    
+                    <div id="controls-${p.id}" class="${isSelected ? 'flex' : 'hidden'} items-center justify-between w-full mt-3 bg-white/50 rounded-lg p-1 gap-2" onclick="event.stopPropagation()">
+                        <button class="w-8 h-8 flex-shrink-0 flex items-center justify-center bg-white border border-gray-200 shadow-sm rounded-lg text-gray-600 active:bg-gray-100" onclick="updateQty(${p.id}, -1)">
+                            <i class="ph ph-minus font-bold text-xs"></i>
+                        </button>
+                        <span id="qty-${p.id}" class="flex-1 text-center font-bold text-base min-w-[20px]">${qty}</span>
+                        <button class="w-8 h-8 flex-shrink-0 flex items-center justify-center bg-[#25D366] text-white shadow-sm rounded-lg active:bg-[#1da851]" onclick="updateQty(${p.id}, 1)">
+                            <i class="ph ph-plus font-bold text-xs"></i>
+                        </button>
+                    </div>
+                `;
+                fragment.appendChild(el);
+            });
+
+            list.appendChild(fragment);
+        }
+
+        // --- FUNCIONES CARRITO VISTA ---
+        function toggleCartView() {
+            const modal = document.getElementById('cartModal');
+            // Check si está cerrado (tiene translate-y-full)
+            const isClosed = modal.classList.contains('translate-y-full');
+            
+            if (isClosed) {
+                // Abrir: Renderizar y quitar el desplazamiento
+                renderCartView();
+                modal.classList.remove('translate-y-full');
+            } else {
+                // Cerrar: Volver a desplazar hacia abajo
+                modal.classList.add('translate-y-full');
+            }
+        }
+
+        function renderCartView() {
+            const container = document.getElementById('cartListContainer');
+            container.innerHTML = '';
+            
+            const cartEntries = Object.entries(state.cart);
+            
+            if (cartEntries.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full flex flex-col items-center justify-center h-64 text-gray-400">
+                        <i class="ph ph-shopping-cart text-6xl mb-4 text-gray-300"></i>
+                        <p class="text-lg">Tu carrito está vacío</p>
+                    </div>
+                `;
+                return;
+            }
+
+            cartEntries.forEach(([id, qty]) => {
+                const p = state.products.find(prod => prod.id == id);
+                if (!p) return;
+
+                const subtotal = p.price * qty;
+                const presText = p.presentation ? `<span class="inline-block mt-1 bg-gray-100 text-gray-500 text-[10px] font-semibold px-2 py-0.5 rounded border border-gray-200 uppercase tracking-wide">${p.presentation}</span>` : '';
+
+                const el = document.createElement('div');
+                el.className = "p-3 rounded-xl shadow-sm border border-gray-200 bg-white flex flex-col justify-between h-full";
+                
+                el.innerHTML = `
+                    <div class="flex-1 w-full flex flex-col items-start">
+                        <h4 class="font-medium text-gray-800 text-sm leading-snug w-full line-clamp-2">${p.name}</h4>
+                        ${presText}
+                        <div class="mt-2 w-full">
+                            <p class="text-[#008069] font-bold text-base">${formatMoney(p.price)}</p>
+                            <p class="text-xs text-gray-400 mt-0.5">Total: ${formatMoney(subtotal)}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center justify-between w-full mt-3 bg-gray-50 rounded-lg p-1 gap-2">
+                        <button class="w-8 h-8 flex-shrink-0 flex items-center justify-center bg-white border border-gray-200 shadow-sm rounded-lg text-gray-600 active:bg-gray-100" onclick="updateQty(${p.id}, -1)">
+                            <i class="ph ${qty === 1 ? 'ph-trash text-red-500' : 'ph-minus'} font-bold text-xs"></i>
+                        </button>
+                        <span class="flex-1 text-center font-bold text-base min-w-[20px]">${qty}</span>
+                        <button class="w-8 h-8 flex-shrink-0 flex items-center justify-center bg-[#25D366] text-white shadow-sm rounded-lg active:bg-[#1da851]" onclick="updateQty(${p.id}, 1)">
+                            <i class="ph ph-plus font-bold text-xs"></i>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(el);
+            });
+        }
+
+        function formatMoney(amount) {
+            return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(amount);
+        }
+
+        // --- LÓGICA DE INTERACCIÓN OPTIMIZADA ---
+        
+        function handleCardClick(e, id) {
+            if (!state.cart[id]) {
+                updateQty(id, 1);
+            }
+        }
+
+        function updateQty(id, change) {
+            const current = state.cart[id] || 0;
+            const newQty = current + change;
+
+            // Actualizar datos
+            if (newQty <= 0) {
+                delete state.cart[id];
+            } else {
+                state.cart[id] = newQty;
+            }
+
+            // 1. Actualizar Tarjeta del Catálogo (DOM Directo)
+            const cardEl = document.getElementById(`card-${id}`);
+            if (cardEl) {
+                const nameEl = document.getElementById(`name-${id}`);
+                const controlsEl = document.getElementById(`controls-${id}`);
+                const qtyEl = document.getElementById(`qty-${id}`);
+
+                if (newQty > 0) {
+                    cardEl.className = `p-3 rounded-xl shadow-sm border card-transition cursor-pointer select-none flex flex-col justify-between h-full bg-green-50 border-[#25D366] ring-1 ring-[#25D366]`;
+                    nameEl.classList.add('text-[#008069]', 'font-bold');
+                    controlsEl.classList.remove('hidden');
+                    controlsEl.classList.add('flex');
+                    qtyEl.textContent = newQty;
+                } else {
+                    cardEl.className = `p-3 rounded-xl shadow-sm border card-transition cursor-pointer select-none flex flex-col justify-between h-full bg-white border-gray-200 hover:border-gray-300`;
+                    nameEl.classList.remove('text-[#008069]', 'font-bold');
+                    controlsEl.classList.add('hidden');
+                    controlsEl.classList.remove('flex');
+                }
+            }
+
+            // 2. Si el Modal del Carrito está abierto, lo actualizamos también
+            const cartModal = document.getElementById('cartModal');
+            if (!cartModal.classList.contains('translate-y-full')) {
+                renderCartView();
+            }
+
+            // 3. Actualizar Footers
+            updateFooter();
+            
+            // Lógica de auto-copiado (mantenida)
+            const cartKeys = Object.keys(state.cart);
+            if (cartKeys.length === 1 && newQty > 0) {
+                autoCopySingleItem(id, newQty);
+            }
+        }
+
+        function clearInput() {
+            const input = document.getElementById('searchInput');
+            input.value = '';
+            input.focus();
+            renderList(); // Aquí sí necesitamos render completo porque cambia la búsqueda
+            document.getElementById('clearSearch').classList.add('hidden');
+        }
+
+        function setupSearch() {
+            const input = document.getElementById('searchInput');
+            const clearBtn = document.getElementById('clearSearch');
+
+            // Pequeño debounce para no saturar al escribir muy rápido
+            let timeout = null;
+            input.addEventListener('input', (e) => {
+                const val = e.target.value;
+                if (val) clearBtn.classList.remove('hidden');
+                else clearBtn.classList.add('hidden');
+                
+                clearTimeout(timeout);
+                timeout = setTimeout(() => {
+                    renderList(val);
+                }, 50); // 50ms de espera es imperceptible pero ayuda
+            });
+        }
+
+        // --- LÓGICA DE CARRITO Y PORTAPAPELES ---
+
+        function updateFooter() {
+            const footer = document.getElementById('cartFooter');
+            const countEl = document.getElementById('itemCount');
+            const totalEl = document.getElementById('totalAmount');
+            const cartTotalEl = document.getElementById('cartModalTotal');
+            
+            const cartEntries = Object.entries(state.cart);
+            
+            if (cartEntries.length === 0) {
+                footer.classList.add('translate-y-full');
+                return;
+            }
+
+            footer.classList.remove('translate-y-full');
+
+            let totalItems = 0;
+            let totalMoney = 0;
+
+            cartEntries.forEach(([id, qty]) => {
+                const product = state.products.find(p => p.id == id);
+                if (product) {
+                    totalItems += qty;
+                    totalMoney += (product.price * qty);
+                }
+            });
+
+            const textCount = `${totalItems} ${totalItems === 1 ? 'ítem' : 'ítems'}`;
+            const textMoney = formatMoney(totalMoney);
+
+            countEl.textContent = textCount;
+            totalEl.textContent = textMoney;
+            
+            // Actualizar también el total dentro del modal del carrito
+            if (cartTotalEl) cartTotalEl.textContent = textMoney;
+        }
+
+        function autoCopySingleItem(id, qty) {
+            const product = state.products.find(p => p.id == id);
+            if (!product) return;
+            const total = product.price * qty;
+            const presText = product.presentation ? ` (${product.presentation})` : '';
+            const text = `${qty} x ${product.name}${presText}: ${formatMoney(total)}`;
+            copyTextToClipboard(text, "Copiado: " + text);
+        }
+
+        function generateBudgetText() {
+            let text = "*Presupuesto:*\n";
+            let grandTotal = 0;
+            Object.entries(state.cart).forEach(([id, qty]) => {
+                const product = state.products.find(p => p.id == id);
+                if (product) {
+                    const subtotal = product.price * qty;
+                    grandTotal += subtotal;
+                    const presText = product.presentation ? ` (${product.presentation})` : '';
+                    text += `▪️ ${qty} x ${product.name}${presText}: ${formatMoney(subtotal)}\n`;
+                }
+            });
+            text += `\n*TOTAL: ${formatMoney(grandTotal)}*`;
+            return text;
+        }
+
+        function copyBudget() {
+            const text = generateBudgetText();
+            copyTextToClipboard(text, "Presupuesto copiado a WhatsApp");
+        }
+
+        function shareToWhatsApp() {
+            const text = generateBudgetText();
+            const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+            window.open(url, '_blank');
+        }
+
+        function copyTextToClipboard(text, successMsg) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";
+            textArea.style.left = "-9999px";
+            textArea.style.top = "0";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) showToast(successMsg);
+                else showToast("No se pudo copiar automáticamente");
+            } catch (err) {
+                console.error('Error al copiar', err);
+                showToast("Error al intentar copiar");
+            }
+            document.body.removeChild(textArea);
+        }
+
+        function toggleConfig() {
+            const modal = document.getElementById('configModal');
+            modal.classList.toggle('hidden');
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            const msgEl = document.getElementById('toastMsg');
+            msgEl.textContent = msg;
+            toast.classList.add('show');
+            if (window.toastTimeout) clearTimeout(window.toastTimeout);
+            window.toastTimeout = setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2500);
+        }
+
+        function clearData() {
+            if(confirm('¿Borrar caché y reiniciar configuración?')) {
+                localStorage.removeItem('app_config');
+                localStorage.removeItem('app_products');
+                localStorage.removeItem('tutorial_seen'); // También reseteamos el tutorial
+                if (URL_FIJA_CSV) {
+                    alert("Se han borrado los datos locales. La App se reiniciará con la URL fija del código.");
+                }
+                location.reload();
+            }
+        }
+    </script>
+</body>
+</html>
