@@ -289,7 +289,7 @@
 
         // --- ESTADO DE LA APLICACIÓN ---
         const state = {
-            products: [],   // { id, name, price, priceRaw, presentation, searchString }
+            products: [],   // { id, name, price, priceRaw, presentation, searchString, lastUpdate }
             cart: {},       // { id: qty }
             config: {
                 url: '',
@@ -562,6 +562,10 @@
                     const priceStr = cols[1];
                     let presentation = '';
                     if (cols.length >= 3) presentation = cols[2];
+
+                    // NUEVO: Columna de fecha de actualización (índice 3)
+                    let lastUpdate = '';
+                    if (cols.length >= 4) lastUpdate = cols[3];
                     
                     const price = parseLocaleNumber(priceStr);
 
@@ -573,6 +577,7 @@
                             price: price,
                             priceRaw: priceStr,
                             presentation: presentation,
+                            lastUpdate: lastUpdate, // Guardamos la fecha
                             searchString: searchString
                         });
                     }
@@ -650,12 +655,20 @@
                 const presentationBadge = p.presentation 
                     ? `<span class="inline-block mt-1 bg-gray-100 text-gray-500 text-[10px] font-semibold px-2 py-0.5 rounded border border-gray-200 uppercase tracking-wide">${p.presentation}</span>` 
                     : '';
+                
+                // NUEVO: Mostrar fecha si existe
+                const dateText = p.lastUpdate
+                    ? `<span class="text-[10px] text-gray-400 mt-0.5 block">Act: ${p.lastUpdate}</span>`
+                    : '';
 
                 el.innerHTML = `
                     <div class="flex-1 w-full flex flex-col items-start">
                         <h3 id="name-${p.id}" class="font-medium text-gray-800 text-sm leading-snug w-full line-clamp-2 ${isSelected ? 'text-[#008069] font-bold' : ''}">${p.name}</h3>
                         ${presentationBadge}
-                        <p class="text-[#008069] font-bold mt-2 text-base">${formattedPrice}</p>
+                        <div class="mt-2 w-full">
+                            <p class="text-[#008069] font-bold text-base leading-none">${formattedPrice}</p>
+                            ${dateText}
+                        </div>
                     </div>
                     
                     <div id="controls-${p.id}" class="${isSelected ? 'flex' : 'hidden'} items-center justify-between w-full mt-3 bg-white/50 rounded-lg p-1 gap-2" onclick="event.stopPropagation()">
@@ -712,6 +725,9 @@
 
                 const subtotal = p.price * qty;
                 const presText = p.presentation ? `<span class="inline-block mt-1 bg-gray-100 text-gray-500 text-[10px] font-semibold px-2 py-0.5 rounded border border-gray-200 uppercase tracking-wide">${p.presentation}</span>` : '';
+                
+                // Mostrar fecha también en carrito si se desea, por ahora mantenemos limpio
+                // const dateText = p.lastUpdate ? `<span class="text-[10px] text-gray-400">Act: ${p.lastUpdate}</span>` : '';
 
                 const el = document.createElement('div');
                 el.className = "p-3 rounded-xl shadow-sm border border-gray-200 bg-white flex flex-col justify-between h-full";
@@ -950,3 +966,4 @@
     </script>
 </body>
 </html>
+
