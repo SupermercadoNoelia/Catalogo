@@ -40,7 +40,8 @@
     <script>
         (function() {
             // 1. Icono Base64 (SVG minimalista verde)
-            const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="100" fill="#008069"/><path d="M386 166c-13-13-33-16-56-11l-35 8c-63 15-119 71-134 134l-8 35c-5 23-2 43 11 56 16 16 43 16 71-11l9-8c4-4 10-4 14 0l46 46c4 4 4 10 0 14l-8 9c-27 28-27 55-11 71 21 21 68 12 101-20l46-46c33-33 42-80 21-101-16-16-43-16-71 11l-9 8c-4 4-10 4-14 0l-46-46c-4-4-4-10 0-14l8-9c27-28 27-55 11-71z" fill="white" opacity="0.3"/><path d="M256 64C150 64 64 150 64 256s86 192 192 192 192-86 192-192S362 64 256 64zm0 336c-79.5 0-144-64.5-144-144S176.5 112 256 112s144 64.5 144 144-64.5 144-144 144zm-16-224h-32v96h-64v32h64v64h32v-64h64v-32h-64v-96z" fill="white"/></svg>`;
+            // Hemos simplificado el SVG para asegurar compatibilidad
+            const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" fill="#008069"/><path d="M386 166c-13-13-33-16-56-11l-35 8c-63 15-119 71-134 134l-8 35c-5 23-2 43 11 56 16 16 43 16 71-11l9-8c4-4 10-4 14 0l46 46c4 4 4 10 0 14l-8 9c-27 28-27 55-11 71 21 21 68 12 101-20l46-46c33-33 42-80 21-101-16-16-43-16-71 11l-9 8c-4 4-10 4-14 0l-46-46c-4-4-4-10 0-14l8-9c27-28 27-55 11-71z" fill="white" opacity="0.3"/><path d="M256 64C150 64 64 150 64 256s86 192 192 192 192-86 192-192S362 64 256 64zm0 336c-79.5 0-144-64.5-144-144S176.5 112 256 112s144 64.5 144 144-64.5 144-144 144zm-16-224h-32v96h-64v32h64v64h32v-64h64v-32h-64v-96z" fill="white"/></svg>`;
             const iconUrl = "data:image/svg+xml;base64," + btoa(iconSvg);
 
             // 2. Inyectar Favicon
@@ -55,24 +56,31 @@
             linkApple.href = iconUrl;
             document.head.appendChild(linkApple);
 
-            // 4. Construir y Linkear Manifiesto
+            // 4. Construir y Linkear Manifiesto ROBUSTO para Android
             const manifest = {
+                "id": "/presupuestador-app-v1", // ID único requerido
                 "name": "Presupuestador Rápido",
                 "short_name": "Presupuestos",
-                "start_url": ".",
+                "start_url": "./index.html", // Start URL explícita
                 "display": "standalone",
                 "background_color": "#ffffff",
                 "theme_color": "#008069",
                 "orientation": "portrait",
-                "icons": [{
-                    "src": iconUrl,
-                    "sizes": "192x192",
-                    "type": "image/svg+xml"
-                }, {
-                    "src": iconUrl,
-                    "sizes": "512x512",
-                    "type": "image/svg+xml"
-                }]
+                "scope": ".",
+                "icons": [
+                    {
+                        "src": iconUrl,
+                        "sizes": "192x192",
+                        "type": "image/svg+xml",
+                        "purpose": "any"
+                    }, 
+                    {
+                        "src": iconUrl,
+                        "sizes": "512x512",
+                        "type": "image/svg+xml",
+                        "purpose": "maskable" // CRUCIAL para Android App Drawer
+                    }
+                ]
             };
             const manifestUrl = "data:application/manifest+json;base64," + btoa(JSON.stringify(manifest));
             const linkManifest = document.createElement('link');
@@ -522,8 +530,6 @@
             } catch (error) {
                 let msg = "Error al cargar el CSV: " + error.message;
                 
-                // Detección de error por protocolo local (file:// o content://)
-                // Esto sucede si el usuario no alojó la app y la abrió desde "Mis Archivos"
                 const isLocal = window.location.protocol === 'file:' || window.location.protocol === 'content:';
                 
                 if (isLocal && (error.message.includes('Failed to fetch') || error.message.includes('NetworkError'))) {
