@@ -1,0 +1,16 @@
+{
+  "name": "Presupuestos",
+  "short_name": "Presupuestos",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#F4FBF9",
+  "theme_color": "#006A60",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgcng9IjEyOCIgZmlsbD0iIzAwNkE2MCIvPjxwYXRoIGQ9Ik0zNjIgMTY2Yy0xMS0xMS0yOC0xNC00OC05bC0zMCA3Yy01NCAxMy0xMDIgNjEtMTE1IDExNWwtNyAzMGMtNCAyMC0xIDM3IDkgNDggMTQgMTQgMzcgMTQgNjEtOWw4LTdjMy0zIDgtMyAxMiAwbDM5IDM5YzMgNCAzIDkgMCAxMmwtNyA4Yy0yMyAyNC0yMyA0Ny05IDYxIDE4IDE4IDU4IDEwIDg3LTE3bDM5LTM5YzI5LTI5IDM2LTY5IDE4LTg3LTE0LTE0LTM3LTE0LTYxIDlsLTggN2MtMyA0LTggNC0xMiAwbC0zOS0zOWMtNC00LTQtOSAwLTEybDctOGMyMy0yNCAyMy00NyA5LTYxeiIgZmlsbD0id2hpdGUiIG9wYWNpdHk9IjAuNCIvPjxwYXRoIGQ9Ik0yNTYgOTZjLTg4IDAtMTYwIDcyLTE2MCAxNjBzNzIgMTYwIDE2MCAxNjAgMTYwLTcyIDE2MC0xNjBTMzQ0IDk2IDI1NiA5NnptMCAyODBjLTY2IDAtMTIwLTU0LTEyMC0xMjBzNTQtMTIwIDEyMC0xMjAgMTIwIDU0IDEyMCAxMjAtNTQgMTIwLTEyMCAxMjB6bS0xNC0xODZoLTI4djgwaC01NHYyOGg1NHY1NGgyOHYtNTRoNTR2LTI4aC01NHYtODB6IiBmaWxsPSJ3aGl0ZSIvPjwvc3ZnPg==",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}
