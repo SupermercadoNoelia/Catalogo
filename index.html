@@ -3,988 +3,1106 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Presupuestador Rápido</title>
+    <title>Presupuestador Material</title>
     
-    <!-- PWA: Color de tema para la barra de estado (Android/iOS) -->
-    <meta name="theme-color" content="#008069">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <!-- PWA Config Estándar -->
+    <meta id="themeColorMeta" name="theme-color" content="#F4FBF9">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Presupuestos">
 
+    <!-- Vincular Manifiesto -->
+    <link rel="manifest" href="./manifest.json">
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Iconos (Phosphor Icons) -->
+    <!-- Iconos -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- Fuente Roboto -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     
     <style>
+        :root {
+            /* Variables Dinámicas */
+            --primary: #006A60;
+            --on-primary: #FFFFFF;
+            --primary-container: #74F8E5;
+            --on-primary-container: #00201C;
+            --secondary-container: #CCE8E0;
+            --surface: #F4FBF9;
+            --surface-container: #ECEEE9;
+            --surface-container-high: #E6E8E3;
+            --outline: #BEC9C6;
+            --text-main: #191C1B;
+            --text-sub: #404947;
+        }
+
+        /* Modo Oscuro Nativo por Clase */
+        .dark-mode {
+            --primary: #80D8C8; 
+            --on-primary: #003731;
+            --primary-container: #005048;
+            --on-primary-container: #74F8E5;
+            --secondary-container: #344C47; 
+            --surface: #101413; 
+            --surface-container: #1D201F; 
+            --surface-container-high: #272B29; 
+            --outline: #89938F;
+            --text-main: #E1E3DF;
+            --text-sub: #BFC9C6;
+        }
+
         body {
             -webkit-tap-highlight-color: transparent;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: 'Roboto', -apple-system, sans-serif;
+            background-color: var(--surface);
+            color: var(--text-main);
+            transition: background-color 0.3s, color 0.3s;
         }
+
+        /* Utilidades */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .card-transition { transition: background-color 0.2s, border-color 0.2s, transform 0.1s; }
-        .ease-spring { transition-timing-function: cubic-bezier(0.05, 0.7, 0.1, 1.0); }
+        
+        .ease-emphasized { transition-timing-function: cubic-bezier(0.2, 0.0, 0, 1.0); }
+        
+        /* Efecto Ripple */
+        .ripple-container { position: relative; overflow: hidden; transform: translate3d(0, 0, 0); }
+        span.ripple {
+            position: absolute; border-radius: 50%; transform: scale(0);
+            animation: ripple 600ms linear; background-color: currentColor; opacity: 0.1; pointer-events: none;
+        }
+        @keyframes ripple { to { transform: scale(4); opacity: 0; } }
+
+        /* Componentes con Variables CSS */
+        .md-card {
+            background: var(--surface-container);
+            border-radius: 16px;
+            box-shadow: 0px 1px 2px rgba(0,0,0,0.08);
+            transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
+            color: var(--text-main);
+        }
+        .md-card.selected {
+            background-color: var(--secondary-container); 
+            box-shadow: 0 0 0 2px var(--primary);
+        }
+
+        .md-fab {
+            background-color: var(--primary-container);
+            color: var(--on-primary-container);
+            box-shadow: 0px 4px 8px 3px rgba(0,0,0,0.15);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .md-fab:active { transform: scale(0.95); }
+
+        .md-search-bar {
+            background: var(--surface-container-high);
+            border-radius: 9999px;
+            transition: background-color 0.2s;
+            color: var(--text-main);
+        }
+        .md-search-bar:focus-within {
+            background: var(--surface-container);
+            box-shadow: 0px 1px 3px 1px rgba(0,0,0,0.15);
+        }
+        .md-search-bar input { color: var(--text-main); }
+        .md-search-bar input::placeholder { color: var(--text-sub); }
+
+        .variant-pill {
+            font-size: 0.75rem; padding: 6px 12px; border-radius: 8px; cursor: pointer;
+            transition: all 0.3s ease; font-weight: 500; white-space: nowrap;
+        }
+        .variant-pill.active {
+            background-color: var(--primary);
+            color: var(--on-primary);
+        }
+        .variant-pill.inactive {
+            background-color: transparent;
+            color: var(--text-sub);
+            border: 1px solid var(--outline);
+        }
+
         #toast {
-            visibility: hidden; opacity: 0; transition: opacity 0.3s, bottom 0.3s;
+            background-color: var(--text-main); color: var(--surface);
+            visibility: hidden; opacity: 0; transform: translate(-50%, 20px);
+            transition: opacity 0.4s, transform 0.4s;
         }
-        #toast.show {
-            visibility: visible; opacity: 1; bottom: 100px;
+        #toast.show { visibility: visible; opacity: 1; transform: translate(-50%, 0); }
+        
+        /* Header y Modales adaptativos */
+        header { background-color: var(--surface); }
+        .bg-surface { background-color: var(--surface); }
+        .bg-surface-container { background-color: var(--surface-container); }
+        .bg-surface-high { background-color: var(--surface-container-high); }
+        
+        .text-primary { color: var(--primary) !important; }
+        .bg-primary { background-color: var(--primary) !important; color: var(--on-primary) !important; }
+        
+        .text-on-surface { color: var(--text-main); }
+        .text-sub { color: var(--text-sub); }
+
+        /* Toggle Switch CSS */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: var(--primary);
         }
-        /* Puntos de paginación del tutorial */
-        .dot { transition: all 0.3s; }
-        .dot.active { background-color: #008069; transform: scale(1.2); }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: var(--primary);
+        }
+        .toggle-checkbox:checked + .toggle-label:before {
+            transform: translateX(100%);
+        }
     </style>
 
-    <!-- SCRIPT PWA: Generación dinámica del Manifiesto e Iconos -->
     <script>
+        // --- REGISTRO DE SERVICE WORKER ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                // VALIDACIÓN IMPORTANTE: 
+                // Los Service Workers solo funcionan en 'localhost' o en dominios 'https'.
+                // No funcionan en 'file://' ni en entornos de previsualización tipo 'blob:'.
+                // Esta comprobación evita el error en consola mientras desarrollas.
+                const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost';
+                
+                if (isSecure) {
+                    navigator.serviceWorker.register('./sw.js')
+                        .then(reg => console.log('SW registrado correctamente:', reg.scope))
+                        .catch(err => console.log('SW error al registrar:', err));
+                } else {
+                    console.log('SW: Omitido en este entorno (requiere HTTPS o localhost para funcionar).');
+                }
+            });
+        }
+
+        // --- ICONO FLOTANTE PARA iOS/DESKTOP ---
+        // Generamos el favicon al vuelo solo para visualización en navegador
         (function() {
-            // 1. Icono Base64 (SVG minimalista verde)
-            const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" fill="#008069"/><path d="M386 166c-13-13-33-16-56-11l-35 8c-63 15-119 71-134 134l-8 35c-5 23-2 43 11 56 16 16 43 16 71-11l9-8c4-4 10-4 14 0l46 46c4 4 4 10 0 14l-8 9c-27 28-27 55-11 71 21 21 68 12 101-20l46-46c33-33 42-80 21-101-16-16-43-16-71 11l-9 8c-4 4-10 4-14 0l-46-46c-4-4-4-10 0-14l8-9c27-28 27-55 11-71z" fill="white" opacity="0.3"/><path d="M256 64C150 64 64 150 64 256s86 192 192 192 192-86 192-192S362 64 256 64zm0 336c-79.5 0-144-64.5-144-144S176.5 112 256 112s144 64.5 144 144-64.5 144-144 144zm-16-224h-32v96h-64v32h64v64h32v-64h64v-32h-64v-96z" fill="white"/></svg>`;
+            const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="128" fill="#006A60"/><path d="M362 166c-11-11-28-14-48-9l-30 7c-54 13-102 61-115 115l-7 30c-4 20-1 37 9 48 14 14 37 14 61-9l8-7c3-3 8-3 12 0l39 39c3 4 3 9 0 12l-7 8c-23 24-23 47-9 61 18 18 58 10 87-17l39-39c29-29 36-69 18-87-14-14-37-14-61 9l-8 7c-3 4-8 4-12 0l-39-39c-4-4-4-9 0-12l7-8c23-24 23-47 9-61z" fill="white" opacity="0.4"/><path d="M256 96c-88 0-160 72-160 160s72 160 160 160 160-72 160-160S344 96 256 96zm0 280c-66 0-120-54-120-120s54-120 120-120 120 54 120 120-54 120-120 120zm-14-186h-28v80h-54v28h54v54h28v-54h54v-28h-54v-80z" fill="white"/></svg>`;
             const iconUrl = "data:image/svg+xml;base64," + btoa(iconSvg);
-
-            // 2. Inyectar Favicon
-            const linkIcon = document.createElement('link');
-            linkIcon.rel = 'icon';
-            linkIcon.href = iconUrl;
-            document.head.appendChild(linkIcon);
-
-            // 3. Inyectar Apple Touch Icon
-            const linkApple = document.createElement('link');
-            linkApple.rel = 'apple-touch-icon';
-            linkApple.href = iconUrl;
-            document.head.appendChild(linkApple);
-
-            // 4. Construir y Linkear Manifiesto ROBUSTO para Android
-            // CAMBIO: ID actualizado para forzar actualización de caché PWA
-            const manifest = {
-                "id": "/presupuestador-app-v1.2", 
-                "name": "Presupuestador Rápido",
-                "short_name": "Presupuestos",
-                "start_url": "./index.html",
-                "display": "standalone",
-                "background_color": "#ffffff",
-                "theme_color": "#008069",
-                "orientation": "portrait",
-                "scope": ".",
-                "icons": [
-                    {
-                        "src": iconUrl,
-                        "sizes": "192x192",
-                        "type": "image/svg+xml",
-                        "purpose": "any"
-                    }, 
-                    {
-                        "src": iconUrl,
-                        "sizes": "512x512",
-                        "type": "image/svg+xml",
-                        "purpose": "maskable"
-                    }
-                ]
-            };
-            const manifestUrl = "data:application/manifest+json;base64," + btoa(JSON.stringify(manifest));
-            const linkManifest = document.createElement('link');
-            linkManifest.rel = 'manifest';
-            linkManifest.href = manifestUrl;
-            document.head.appendChild(linkManifest);
+            const linkIcon = document.createElement('link'); linkIcon.rel = 'icon'; linkIcon.href = iconUrl; document.head.appendChild(linkIcon);
+            const linkApple = document.createElement('link'); linkApple.rel = 'apple-touch-icon'; linkApple.href = iconUrl; document.head.appendChild(linkApple);
         })();
+
+        // --- RIPPLE EFFECT ---
+        function createRipple(event, explicitElement) {
+            const button = explicitElement || event.currentTarget;
+            if (!button || !button.classList || button.classList.contains('no-ripple')) return;
+            const circle = document.createElement("span");
+            const diameter = Math.max(button.clientWidth, button.clientHeight);
+            const radius = diameter / 2;
+            const rect = button.getBoundingClientRect();
+            let clientX = event.touches?.[0]?.clientX ?? event.clientX;
+            let clientY = event.touches?.[0]?.clientY ?? event.clientY;
+            
+            circle.style.width = circle.style.height = `${diameter}px`;
+            if (isNaN(clientX)) { circle.style.left=`${radius}px`; circle.style.top=`${radius}px`; }
+            else { circle.style.left=`${clientX - rect.left - radius}px`; circle.style.top=`${clientY - rect.top - radius}px`; }
+            circle.classList.add("ripple");
+            const existing = button.querySelector('.ripple'); if(existing) existing.remove();
+            button.appendChild(circle);
+        }
+        document.addEventListener('mousedown', (e) => { const t = e.target.closest('.ripple-container'); if(t) createRipple(e, t); });
+        document.addEventListener('touchstart', (e) => { const t = e.target.closest('.ripple-container'); if(t) createRipple(e, t); }, {passive: true});
     </script>
 </head>
-<body class="bg-gray-100 h-[100dvh] flex flex-col text-gray-800 overflow-hidden">
+<body class="h-[100dvh] flex flex-col overflow-hidden">
 
-    <!-- 1. HEADER -->
-    <header class="bg-[#008069] text-white p-4 shadow-md z-20 shrink-0">
-        <div class="flex justify-between items-center max-w-7xl mx-auto">
-            <h1 class="font-bold text-lg flex items-center gap-2">
-                <i class="ph ph-whatsapp-logo text-2xl"></i>
-                Presupuestos
-            </h1>
-            <div class="flex gap-2">
-                <!-- Botón Ayuda / Tutorial -->
-                <button onclick="startTutorial()" class="p-2 rounded-full hover:bg-[#006653] transition" aria-label="Ayuda">
-                    <i class="ph ph-question text-xl"></i>
+    <!-- 1. TOP APP BAR -->
+    <header class="p-4 shrink-0 z-20 flex flex-col gap-4 transition-colors duration-300">
+        <div class="flex justify-between items-center max-w-7xl mx-auto w-full">
+            <!-- Brand Area (Logo + Name) -->
+            <div class="flex items-center gap-3 overflow-hidden">
+                <div id="brandLogoContainer" class="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white shrink-0 overflow-hidden">
+                    <i class="ph-fill ph-whatsapp-logo text-2xl"></i>
+                </div>
+                <h1 id="brandNameDisplay" class="font-medium text-[22px] tracking-tight text-on-surface truncate">
+                    Presupuestos
+                </h1>
+            </div>
+
+            <div class="flex gap-1">
+                <button onclick="toggleSavedModal()" class="w-10 h-10 rounded-full hover:bg-black/5 flex items-center justify-center transition ripple-container text-sub" aria-label="Guardados">
+                    <i class="ph ph-folder-open text-2xl"></i>
                 </button>
-                <button onclick="toggleConfig()" class="p-2 rounded-full hover:bg-[#006653] transition" aria-label="Configuración">
-                    <i class="ph ph-gear text-xl"></i>
+                <button onclick="startTutorial()" class="w-10 h-10 rounded-full hover:bg-black/5 flex items-center justify-center transition ripple-container text-sub" aria-label="Ayuda">
+                    <i class="ph ph-question text-2xl"></i>
+                </button>
+                <button onclick="toggleConfig()" class="w-10 h-10 rounded-full hover:bg-black/5 flex items-center justify-center transition ripple-container text-sub" aria-label="Configuración">
+                    <i class="ph ph-gear text-2xl"></i>
                 </button>
             </div>
         </div>
-        
-        <!-- Alerta de Datos Viejos -->
-        <div id="staleDataAlert" class="hidden mt-2 bg-yellow-100 text-yellow-800 text-xs px-3 py-1 rounded border border-yellow-200 flex items-center gap-2">
-            <i class="ph ph-warning"></i>
-            <span>Datos desactualizados (+24h). Actualiza en configuración.</span>
+
+        <!-- SEARCH BAR -->
+        <div class="max-w-2xl mx-auto w-full relative group">
+            <div class="md-search-bar h-12 flex items-center px-4 gap-3">
+                <i class="ph ph-magnifying-glass text-sub text-xl"></i>
+                <input type="text" id="searchInput" placeholder="Buscar productos..." 
+                       class="bg-transparent flex-1 outline-none text-[16px]"
+                       autocomplete="off">
+                <!-- Botón de Micrófono -->
+                <button id="micBtn" class="text-sub p-1 rounded-full hover:bg-black/10 transition flex items-center justify-center" aria-label="Búsqueda por voz">
+                    <i class="ph-bold ph-microphone text-xl"></i>
+                </button>
+                <button id="clearSearch" class="hidden text-sub p-1 rounded-full hover:bg-black/10 transition" onclick="clearInput()">
+                    <i class="ph-fill ph-x-circle text-xl"></i>
+                </button>
+            </div>
+            <div id="staleDataAlert" class="hidden absolute -bottom-8 left-4 text-[11px] text-red-500 font-medium flex items-center gap-1 bg-red-50 px-2 py-0.5 rounded-md">
+                <i class="ph-fill ph-warning"></i> Datos antiguos
+            </div>
         </div>
     </header>
 
-    <!-- 2. SEARCH BAR (Sticky) -->
-    <div class="bg-white p-3 shadow-sm z-10 shrink-0">
-        <div class="max-w-7xl mx-auto relative">
-            <i class="ph ph-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-lg"></i>
-            <input type="text" id="searchInput" placeholder="Buscar producto..." 
-                   class="w-full pl-10 pr-10 py-3 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#008069] text-base"
-                   autocomplete="off">
-            <button id="clearSearch" class="hidden absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 p-1" onclick="clearInput()">
-                <i class="ph ph-x-circle text-lg"></i>
-            </button>
-        </div>
-    </div>
-
     <!-- 3. PRODUCT LIST AREA -->
-    <main class="flex-1 overflow-y-auto no-scrollbar p-3 pb-40" id="mainContainer">
+    <main class="flex-1 overflow-y-auto no-scrollbar px-4 pb-32 pt-2" id="mainContainer">
         <div id="productList" class="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-            <div class="col-span-full text-center text-gray-400 mt-10">
-                <i class="ph ph-basket text-4xl mb-2"></i>
-                <p>Cargando productos o configura la URL...</p>
+            <div class="col-span-full flex flex-col items-center justify-center py-20 opacity-50 text-sub">
+                <i class="ph-duotone ph-basket text-6xl mb-4 text-primary"></i>
+                <p class="text-sm font-medium">Cargando catálogo...</p>
             </div>
         </div>
-        <div id="limitMessage" class="hidden text-center text-gray-400 text-sm mt-4 pb-4">
-            Mostrando los primeros 100 resultados. Usa el buscador para filtrar.
+        <div id="limitMessage" class="hidden text-center text-sub text-xs font-medium mt-6 pb-6 tracking-wide uppercase opacity-70">
+            Mostrando 100 resultados principales
         </div>
     </main>
 
-    <!-- 4. FOOTER / CART BAR -->
-    <div id="cartFooter" class="fixed bottom-0 left-0 w-full bg-white border-t shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] transform translate-y-full transition-transform duration-300 z-40 pb-[env(safe-area-inset-bottom)]">
-        <div class="max-w-7xl mx-auto p-4 flex justify-between items-center">
-            <div class="flex flex-col cursor-pointer select-none group" onclick="toggleCartView()">
-                <div class="flex items-center gap-2">
-                    <span class="text-xs text-gray-500 font-medium group-hover:text-[#008069] transition-colors" id="itemCount">0 ítems</span>
-                    <div class="bg-gray-100 rounded-full p-0.5 group-hover:bg-green-50">
-                        <i class="ph ph-caret-up text-gray-500 text-xs font-bold"></i>
+    <!-- 4. BOTTOM APP BAR (Cart) -->
+    <div id="cartFooter" class="fixed bottom-0 left-0 w-full z-40 transform translate-y-full transition-transform duration-500 ease-emphasized">
+        <div class="absolute -top-6 right-4 z-50">
+            <button onclick="shareToWhatsApp()" class="md-fab w-14 h-14 rounded-[16px] flex items-center justify-center ripple-container active:scale-95">
+                <i class="ph-fill ph-whatsapp-logo text-3xl"></i>
+            </button>
+        </div>
+
+        <div class="bg-surface-container pt-4 pb-[env(safe-area-inset-bottom)] px-4 rounded-t-[20px] shadow-[0_-2px_10px_rgba(0,0,0,0.05)] border-t border-white/10">
+            <div class="max-w-7xl mx-auto flex items-center justify-between h-16">
+                <div class="flex flex-col justify-center cursor-pointer ripple-container px-3 py-1 rounded-xl hover:bg-white/10 transition w-full mr-20" onclick="toggleCartView()">
+                    <div class="flex items-center gap-2 mb-0.5">
+                        <span class="text-[11px] font-bold tracking-wider text-primary uppercase bg-primary/10 px-2 py-0.5 rounded-md" id="itemCount">0 Ítems</span>
+                        <i class="ph-bold ph-caret-up text-sub text-xs"></i>
                     </div>
+                    <div class="text-[22px] font-normal text-on-surface leading-none tracking-tight" id="totalAmount">$0</div>
                 </div>
-                <div class="flex items-baseline gap-1">
-                    <span class="text-xl font-bold text-[#008069]" id="totalAmount">$0,00</span>
-                    <span class="text-[10px] text-gray-400 font-medium uppercase tracking-wide">Ver detalle</span>
-                </div>
-            </div>
-            
-            <div class="flex gap-3">
-                <button onclick="shareToWhatsApp()" class="bg-white border-2 border-[#25D366] text-[#25D366] hover:bg-green-50 font-bold p-3 rounded-full shadow-md flex items-center justify-center active:scale-95 transition-transform" aria-label="Enviar a WhatsApp">
-                    <i class="ph ph-whatsapp-logo text-2xl"></i>
-                </button>
-                <button onclick="copyBudget()" class="bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold py-3 px-6 rounded-full shadow-lg flex items-center gap-2 active:scale-95 transition-transform">
-                    <span>Copiar</span>
-                    <i class="ph ph-copy text-lg"></i>
+                <button onclick="copyBudget()" class="mr-4 text-primary flex flex-col items-center gap-1 p-2 rounded-xl ripple-container hover:bg-primary/10">
+                    <i class="ph ph-copy text-2xl"></i>
+                    <span class="text-[10px] font-medium">Copiar</span>
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- 6. CART MODAL VIEW -->
-    <div id="cartModal" class="fixed inset-0 bg-gray-50 z-50 flex flex-col h-[100dvh] transform transition-transform duration-500 ease-spring translate-y-full shadow-2xl">
-        <div class="bg-white p-4 shadow-sm flex justify-between items-center shrink-0 border-b z-10">
-            <h2 class="font-bold text-lg flex items-center gap-2 text-gray-800">
-                <i class="ph ph-shopping-cart text-[#008069] text-xl"></i>
-                Resumen del Pedido
-            </h2>
-            <button onclick="toggleCartView()" class="p-2 rounded-full hover:bg-gray-100 text-gray-500 active:scale-95 transition-transform">
-                <i class="ph ph-caret-down text-2xl"></i>
-            </button>
+    <!-- 6. CART MODAL (Responsive with Rounded Corners) -->
+    <!-- Backdrop for Desktop -->
+    <div id="cartBackdrop" onclick="toggleCartView()" class="fixed inset-0 bg-black/40 z-40 hidden opacity-0 transition-opacity duration-500 backdrop-blur-sm"></div>
+
+    <div id="cartModal" class="fixed z-50 flex flex-col bg-surface shadow-2xl transition-transform duration-500 ease-emphasized translate-y-[120%]
+            inset-0 h-[100dvh] w-full rounded-t-[28px] overflow-hidden
+            md:inset-auto md:bottom-6 md:left-1/2 md:-translate-x-1/2 md:w-[600px] md:h-[85vh] md:rounded-[32px] md:border md:border-white/10">
+        
+        <!-- Header -->
+        <div class="pt-2 pb-4 px-4 bg-surface shrink-0 border-b border-white/5 cursor-pointer md:cursor-default" onclick="if(window.innerWidth < 768) toggleCartView()">
+            <div class="w-12 h-1.5 bg-gray-400 opacity-20 rounded-full mx-auto mb-4 md:hidden"></div>
+            <div class="flex justify-between items-center">
+                <h2 class="text-2xl font-normal text-on-surface">Tu Pedido</h2>
+                <button onclick="toggleCartView()" class="w-10 h-10 rounded-full bg-surface-high flex items-center justify-center text-on-surface ripple-container">
+                    <i class="ph-bold ph-caret-down text-xl"></i>
+                </button>
+            </div>
         </div>
         
-        <div id="cartListContainer" class="flex-1 overflow-y-auto p-4 pb-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 content-start">
-            <!-- Se llena via JS -->
+        <div id="cartListContainer" class="flex-1 overflow-y-auto px-4 pb-4 grid grid-cols-1 gap-2 content-start pt-4">
+            <!-- Items -->
         </div>
 
-        <div class="bg-white border-t p-4 shrink-0 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_15px_rgba(0,0,0,0.05)]">
-            <div class="flex justify-between items-end mb-4 px-1">
-                <span class="text-gray-500 font-medium">Total Final</span>
-                <span class="text-3xl font-bold text-[#008069]" id="cartModalTotal">$0,00</span>
+        <div class="p-4 bg-surface-high shrink-0 pb-[env(safe-area-inset-bottom)] space-y-3">
+            <div class="flex justify-between items-baseline px-2">
+                <span class="text-sm font-medium text-sub">Total estimado</span>
+                <span class="text-3xl font-normal text-primary" id="cartModalTotal">$0,00</span>
             </div>
-            <div class="grid grid-cols-2 gap-3">
-                 <button onclick="shareToWhatsApp()" class="bg-white border-2 border-[#25D366] text-[#25D366] font-bold py-3.5 rounded-xl shadow-sm flex items-center justify-center gap-2 active:bg-green-50 active:scale-[0.98] transition-transform">
-                    <i class="ph ph-whatsapp-logo text-xl"></i> WhatsApp
-                 </button>
-                 <button onclick="copyBudget()" class="bg-[#25D366] text-white font-bold py-3.5 rounded-xl shadow-lg flex items-center justify-center gap-2 active:bg-[#1da851] active:scale-[0.98] transition-transform">
-                    <i class="ph ph-copy text-xl"></i> Copiar
-                 </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 5. CONFIG MODAL (Con Botón de Instalar PWA) -->
-    <div id="configModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center backdrop-blur-sm">
-        <div class="bg-white w-11/12 max-w-md rounded-xl shadow-2xl overflow-hidden">
-            <div class="bg-[#008069] text-white p-4 flex justify-between items-center">
-                <h2 class="font-bold">Configuración</h2>
-                <button onclick="toggleConfig()" class="p-1"><i class="ph ph-x text-xl"></i></button>
-            </div>
-            <div class="p-6 space-y-4">
-                
-                <!-- Botón de Instalación (Dinámico) -->
-                <div id="installContainer" class="hidden mb-4 p-3 bg-green-50 rounded-lg border border-green-200 shadow-sm">
-                     <!-- El contenido se inyecta via JS dependiendo del dispositivo -->
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">URL del CSV (Google Sheets)</label>
-                    <input type="text" id="csvUrlInput" placeholder="https://docs.google.com/spreadsheets/..." 
-                           class="w-full border p-3 rounded-lg text-sm focus:ring-2 focus:ring-[#008069] outline-none">
-                    <p class="text-xs text-gray-500 mt-1">Archivo > Compartir > Publicar en la web > CSV</p>
-                </div>
-                
-                <div class="flex justify-between items-center bg-gray-50 p-3 rounded text-sm">
-                    <span class="text-gray-600">Última actualización:</span>
-                    <span id="lastUpdatedDate" class="font-mono font-bold">Nunca</span>
-                </div>
-
-                <div class="pt-2 flex gap-3">
-                    <button onclick="fetchData()" class="flex-1 bg-blue-600 text-white py-3 rounded-lg font-medium active:bg-blue-700 flex justify-center items-center gap-2">
-                        <i class="ph ph-arrows-clockwise"></i> Actualizar Datos
-                    </button>
-                </div>
-                
-                <div class="border-t pt-4 flex flex-col gap-2">
-                     <button onclick="clearData()" class="w-full text-red-500 text-sm py-2 hover:bg-red-50 rounded">
-                        Borrar caché y reiniciar
-                    </button>
-                    <!-- CAMBIO: Version visual para que sepas si estás en la app vieja o nueva -->
-                    <span class="text-center text-[10px] text-gray-400">Versión App: <span id="appVersionDisplay">Cargando...</span></span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 7. TUTORIAL / ONBOARDING MODAL -->
-    <div id="tutorialModal" class="fixed inset-0 bg-black/80 z-[60] hidden flex items-center justify-center p-4 backdrop-blur-sm transition-opacity duration-300">
-        <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden relative flex flex-col min-h-[400px]">
-            <!-- Close Button -->
-            <button onclick="closeTutorial(true)" class="absolute top-3 right-3 p-2 text-gray-400 hover:text-gray-600 z-10">
-                <i class="ph ph-x text-xl"></i>
-            </button>
-
-            <!-- Slides Container -->
-            <div id="tutorialSlides" class="flex-1 p-8 flex flex-col items-center justify-center text-center">
-                <!-- El contenido se inyecta via JS -->
-            </div>
-
-            <!-- Footer con Botones -->
-            <div class="p-4 border-t bg-gray-50 flex justify-between items-center">
-                <div class="flex gap-1.5" id="tutorialDots">
-                    <!-- Dots generados via JS -->
-                </div>
-                <button id="tutorialNextBtn" onclick="nextTutorialStep()" class="bg-[#008069] text-white px-6 py-2 rounded-full font-bold text-sm shadow active:scale-95 transition-transform">
-                    Siguiente
+            <div class="grid grid-cols-4 gap-2">
+                <button onclick="saveCurrentBudget()" class="col-span-1 h-14 bg-surface text-on-surface rounded-2xl flex items-center justify-center ripple-container">
+                    <i class="ph-fill ph-floppy-disk text-2xl"></i>
+                </button>
+                <button onclick="shareToWhatsApp()" class="col-span-2 h-14 bg-primary text-on-primary rounded-2xl flex items-center justify-center gap-2 font-medium text-lg ripple-container shadow-lg">
+                    <i class="ph-fill ph-whatsapp-logo text-xl"></i> Enviar
+                </button>
+                <button onclick="copyBudget()" class="col-span-1 h-14 bg-primary/20 text-primary rounded-2xl flex items-center justify-center ripple-container">
+                    <i class="ph-fill ph-copy text-2xl"></i>
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- TOAST NOTIFICATION -->
-    <div id="toast" class="fixed left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-lg text-sm font-medium z-50 flex items-center gap-2">
-        <i class="ph ph-check-circle text-green-400 text-lg"></i>
-        <span id="toastMsg">Copiado al portapapeles</span>
+    <!-- 8. SAVED BUDGETS MODAL -->
+    <div id="savedModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-surface w-full max-w-lg h-[85vh] rounded-[28px] shadow-2xl overflow-hidden flex flex-col relative transform transition-transform duration-300 scale-95 opacity-0" id="savedModalContent">
+            <div class="p-6 pb-2 shrink-0">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-normal text-on-surface">Guardados</h2>
+                    <button onclick="toggleSavedModal()" class="w-8 h-8 rounded-full bg-surface-high flex items-center justify-center ripple-container text-on-surface">
+                        <i class="ph-bold ph-x"></i>
+                    </button>
+                </div>
+                <div class="flex gap-2">
+                    <div class="md-search-bar h-10 flex-1 flex items-center px-3 gap-2">
+                        <i class="ph ph-magnifying-glass text-sub"></i>
+                        <input type="text" id="savedSearchInput" placeholder="Filtrar..." class="bg-transparent w-full outline-none text-sm" oninput="applySavedFilters()">
+                    </div>
+                    <input type="date" id="savedDateInput" class="h-10 bg-surface-high rounded-full px-3 text-xs outline-none text-sub" onchange="applySavedFilters()">
+                </div>
+            </div>
+            <div id="savedListContainer" class="flex-1 overflow-y-auto p-4 space-y-2"></div>
+        </div>
+    </div>
+
+    <!-- 5. CONFIG MODAL (Scrollable & Customizable) -->
+    <div id="configModal" class="fixed inset-0 bg-black/50 z-[60] hidden flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-surface w-full max-w-md max-h-[85vh] rounded-[28px] shadow-2xl overflow-hidden flex flex-col transform transition-all duration-300 scale-95 opacity-0" id="configModalContent">
+            
+            <div class="p-6 pb-0 shrink-0 border-b border-white/5">
+                <div class="flex justify-between items-center mb-2">
+                    <i class="ph-duotone ph-gear text-3xl text-primary"></i>
+                    <button onclick="toggleConfig()" class="w-8 h-8 rounded-full bg-surface-high flex items-center justify-center ripple-container text-on-surface"><i class="ph-bold ph-x"></i></button>
+                </div>
+                <h2 class="text-2xl font-normal text-on-surface mb-1">Ajustes</h2>
+            </div>
+            
+            <div class="p-6 space-y-6 overflow-y-auto flex-1">
+                
+                <!-- SECCION 1: PERSONALIZACION (BRANDING) -->
+                <div class="space-y-4">
+                    <h3 class="text-xs font-bold text-primary tracking-widest uppercase">Personalización del Negocio</h3>
+                    
+                    <!-- Color Picker -->
+                    <div class="flex items-center justify-between">
+                        <label class="text-sm text-on-surface font-medium">Color de Marca</label>
+                        <div class="flex items-center gap-2">
+                            <input type="color" id="brandColorInput" class="w-10 h-10 rounded-full border-0 cursor-pointer" onchange="updateThemePreview(this.value)">
+                            <button onclick="resetTheme()" class="text-xs text-sub underline">Reset</button>
+                        </div>
+                    </div>
+
+                    <!-- Dark Mode Toggle -->
+                    <div class="flex items-center justify-between">
+                        <label class="text-sm text-on-surface font-medium">Modo Oscuro</label>
+                        <div class="relative inline-block w-12 h-6 align-middle select-none transition duration-200 ease-in">
+                            <input type="checkbox" name="darkModeToggle" id="darkModeToggle" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer border-gray-300 transition-all duration-300" onchange="toggleDarkMode(this.checked)"/>
+                            <label for="darkModeToggle" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer transition-colors duration-300"></label>
+                        </div>
+                    </div>
+
+                    <!-- Business Name -->
+                    <div class="space-y-1">
+                        <label class="text-xs text-sub">Nombre del Negocio</label>
+                        <input type="text" id="businessNameInput" placeholder="Ej: Mi Tienda" class="w-full p-3 bg-surface-high rounded-xl outline-none focus:ring-1 focus:ring-primary text-sm text-on-surface">
+                    </div>
+
+                    <!-- Logo URL -->
+                    <div class="space-y-1">
+                        <label class="text-xs text-sub">URL del Logo (Opcional)</label>
+                        <input type="text" id="logoUrlInput" placeholder="https://..." class="w-full p-3 bg-surface-high rounded-xl outline-none focus:ring-1 focus:ring-primary text-sm text-on-surface">
+                    </div>
+                </div>
+
+                <div class="h-px bg-white/10"></div>
+
+                <!-- SECCION 2: DATOS -->
+                <div class="space-y-4">
+                    <h3 class="text-xs font-bold text-primary tracking-widest uppercase">Datos y Precios</h3>
+                    <div id="installContainer" class="hidden p-3 bg-secondary-container rounded-xl text-xs text-on-surface"></div>
+
+                    <div class="space-y-1">
+                        <label class="text-xs text-sub">URL Google Sheets CSV</label>
+                        <input type="text" id="csvUrlInput" class="w-full p-3 bg-surface-high rounded-xl outline-none focus:ring-1 focus:ring-primary text-sm text-on-surface font-mono">
+                    </div>
+
+                    <div class="flex items-center justify-between bg-surface-high p-3 rounded-xl">
+                        <span class="text-xs text-sub">Última actualización:</span>
+                        <span id="lastUpdatedDate" class="text-xs font-bold text-on-surface">Nunca</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-2">
+                        <button onclick="fetchData()" class="h-12 bg-primary text-on-primary rounded-full font-medium ripple-container flex items-center justify-center gap-2 shadow-sm">
+                            <i class="ph-bold ph-arrows-clockwise"></i> Actualizar Catálogo
+                        </button>
+                        
+                        <button id="btnClearData" onclick="clearData(event)" class="h-12 text-red-500 border border-red-500/20 hover:bg-red-500/10 rounded-full font-medium ripple-container transition-colors text-sm">
+                            Restablecer App
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="text-center pt-2">
+                    <span class="text-[10px] text-sub bg-surface-high px-2 py-1 rounded-md" id="appVersionDisplay">v3.10</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TUTORIAL MODAL -->
+    <div id="tutorialModal" class="fixed inset-0 bg-[#00201C] z-[70] hidden flex flex-col items-center justify-center p-6 text-[#F4FBF9] transition-opacity duration-500">
+        <div class="w-full max-w-xs flex flex-col items-center text-center space-y-8 animate-fade-in-up">
+            <div class="w-24 h-24 bg-primary rounded-[28px] flex items-center justify-center mb-4 shadow-xl shadow-black/20">
+                <i id="tutIcon" class="ph-duotone ph-sparkle text-5xl text-on-primary"></i>
+            </div>
+            <div class="space-y-4">
+                <h3 id="tutTitle" class="text-3xl font-normal">Bienvenido</h3>
+                <p id="tutText" class="text-[#BEC9C6] text-lg leading-relaxed">Ahora con modo oscuro y colores personalizables.</p>
+            </div>
+            <div class="flex gap-2" id="tutorialDots"></div>
+            <button onclick="nextTutorialStep()" class="w-full h-14 bg-primary-container text-on-primary-container rounded-full font-bold text-lg ripple-container mt-8">
+                <span id="tutBtnText">Comenzar</span>
+            </button>
+        </div>
+        <button onclick="closeTutorial(true)" class="absolute top-6 right-6 p-2 opacity-50 hover:opacity-100"><i class="ph ph-x text-2xl"></i></button>
+    </div>
+
+    <!-- TOAST -->
+    <div id="toast" class="fixed bottom-24 left-1/2 transform -translate-x-1/2 rounded-full shadow-lg text-sm font-medium z-[80] flex items-center gap-3 whitespace-nowrap px-6 py-3">
+        <i class="ph-fill ph-check-circle text-primary"></i>
+        <span id="toastMsg">Acción completada</span>
     </div>
 
     <script>
-        // ==========================================
-        //  CONFIGURACIÓN FIJA (OPCIONAL)
+        // --- APP CONSTANTS ---
         const URL_FIJA_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS8v6EfTn5QfJPDmaCZRfFaAmkdopFrYPBh9N0s3ifH3_q257I_zgXxNz-GJUByuQbAgc0kfeXLZEJZ/pub?gid=1147648108&single=true&output=csv"; 
-        // CAMBIO: Versión para verificar actualización
-        const APP_VERSION = "v1.2 (Fecha)";
-        // ==========================================
+        const APP_VERSION = "v3.10 (PWA Protocol Fix)";
 
-        // --- HELPER OPTIMIZADO PARA TEXTO ---
-        const normalize = (str) => {
-            if (!str) return "";
-            return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        };
-
-        // --- ESTADO DE LA APLICACIÓN ---
-        const state = {
-            products: [],   // { id, name, price, priceRaw, presentation, searchString, lastUpdate }
-            cart: {},       // { id: qty }
-            config: {
-                url: '',
-                lastUpdated: 0
-            }
-        };
-
-        // --- PWA INSTALLATION LOGIC ---
-        let deferredPrompt;
+        // --- STATE ---
+        const normalize = (str) => str ? str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
         
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-            showInstallUI('android');
-        });
+        // Estado por defecto extendido con tema
+        const defaultTheme = {
+            primary: '#006A60',
+            businessName: 'Presupuestos',
+            logoUrl: '',
+            darkMode: false
+        };
 
-        function showInstallUI(type) {
-            const container = document.getElementById('installContainer');
-            container.classList.remove('hidden');
-            
-            if (type === 'ios') {
-                container.innerHTML = `
-                    <p class="text-xs text-green-800 mb-2 font-bold flex items-center gap-1">
-                        <i class="ph ph-apple-logo text-lg"></i> Instalación en iPhone/iPad
-                    </p>
-                    <div class="text-sm text-gray-700 bg-white p-3 rounded border border-green-100">
-                        <ol class="list-decimal ml-4 space-y-1">
-                            <li>Toca el botón <b>Compartir</b> <i class="ph ph-share-network"></i> abajo.</li>
-                            <li>Baja y selecciona <b>Agregar a Inicio</b> <i class="ph ph-plus-square"></i>.</li>
-                        </ol>
-                    </div>
-                `;
-            } else {
-                container.innerHTML = `
-                     <p class="text-xs text-green-700 mb-2 font-medium">Instala esta app para un acceso más rápido</p>
-                     <button id="installBtn" class="w-full bg-[#008069] text-white py-2 rounded-lg font-bold text-sm shadow flex justify-center items-center gap-2 active:bg-[#006653]">
-                        <i class="ph ph-download-simple"></i> Instalar App
-                     </button>
-                `;
-                
-                document.getElementById('installBtn').onclick = async () => {
-                    if (deferredPrompt) {
-                        deferredPrompt.prompt();
-                        const { outcome } = await deferredPrompt.userChoice;
-                        if (outcome === 'accepted') {
-                            container.classList.add('hidden');
-                        }
-                        deferredPrompt = null;
-                    }
-                };
-            }
-        }
+        const state = {
+            products: [], groups: [], cart: {}, saved: [],
+            config: { url: '', lastUpdated: 0 },
+            theme: { ...defaultTheme }
+        };
 
-        // --- TUTORIAL LOGIC ---
-        const tutorialSteps = [
-            {
-                icon: "ph-magnifying-glass",
-                title: "Búsqueda Inteligente",
-                text: "Encuentra productos por nombre, marca o tipo. <br><b>No importa el orden de las palabras</b>."
-            },
-            {
-                icon: "ph-hand-tap",
-                title: "Selección Rápida",
-                text: "Toca una tarjeta para agregar 1 unidad. <br>Si seleccionas <b>un solo producto</b>, ¡se copia automáticamente al portapapeles!"
-            },
-            {
-                icon: "ph-shopping-cart",
-                title: "Tu Pedido",
-                text: "Toca la barra inferior para ver el detalle. Envía todo el presupuesto por <b>WhatsApp</b> o cópialo con un clic."
-            },
-            {
-                icon: "ph-gear",
-                title: "Configuración",
-                text: "Usa el ícono ⚙️ para actualizar precios desde tu <b>Google Sheet</b>. La app funciona sin internet una vez cargada."
-            }
-        ];
-
-        let currentStep = 0;
-
-        function startTutorial() {
-            currentStep = 0;
-            renderTutorialStep();
-            document.getElementById('tutorialModal').classList.remove('hidden');
-        }
-
-        function closeTutorial(permanent = false) {
-            document.getElementById('tutorialModal').classList.add('hidden');
-            if (permanent) {
-                localStorage.setItem('tutorial_seen', 'true');
-            }
-        }
-
-        function nextTutorialStep() {
-            if (currentStep < tutorialSteps.length - 1) {
-                currentStep++;
-                renderTutorialStep();
-            } else {
-                closeTutorial(true);
-            }
-        }
-
-        function renderTutorialStep() {
-            const slide = tutorialSteps[currentStep];
-            const container = document.getElementById('tutorialSlides');
-            const dotsContainer = document.getElementById('tutorialDots');
-            const btn = document.getElementById('tutorialNextBtn');
-
-            // Render Slide Content
-            container.innerHTML = `
-                <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6 text-[#008069]">
-                    <i class="ph ${slide.icon} text-4xl"></i>
-                </div>
-                <h3 class="text-xl font-bold text-gray-800 mb-3">${slide.title}</h3>
-                <p class="text-gray-600 leading-relaxed">${slide.text}</p>
-            `;
-
-            // Render Dots
-            dotsContainer.innerHTML = tutorialSteps.map((_, idx) => `
-                <div class="w-2.5 h-2.5 rounded-full dot ${idx === currentStep ? 'active' : 'bg-gray-300'}"></div>
-            `).join('');
-
-            // Update Button Text
-            btn.textContent = currentStep === tutorialSteps.length - 1 ? "¡Entendido!" : "Siguiente";
-        }
-
-        // --- INICIALIZACIÓN ---
+        // --- INIT ---
         document.addEventListener('DOMContentLoaded', () => {
             loadState();
+            
+            // Apply Theme immediately
+            applyThemeUI();
+            
             setupSearch();
-            setupConfigInput();
+            setupVoiceSearch(); 
+            setupConfigListeners();
             renderList();
             checkStaleData();
             
-            // Mostrar versión
             document.getElementById('appVersionDisplay').textContent = APP_VERSION;
-
-            // Check Tutorial
-            if (!localStorage.getItem('tutorial_seen')) {
-                // Pequeño delay para que cargue la UI primero
-                setTimeout(() => startTutorial(), 1000);
-            }
-
-            // Detect iOS for instructions
-            const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-            const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
-            
-            if (isIos && !isStandalone) {
-                showInstallUI('ios');
-            }
-
-            if ('serviceWorker' in navigator) {
-                try {
-                    const swCode = "self.addEventListener('fetch', () => {}); self.addEventListener('install', () => self.skipWaiting());";
-                    const blob = new Blob([swCode], {type: 'text/javascript'});
-                    const swUrl = URL.createObjectURL(blob);
-                    navigator.serviceWorker.register(swUrl).catch(() => {});
-                } catch(e) {}
-            }
+            if (!localStorage.getItem('tutorial_seen')) setTimeout(() => startTutorial(), 500);
         });
 
-        function setupConfigInput() {
-            const input = document.getElementById('csvUrlInput');
-            const save = () => {
-                state.config.url = input.value.trim();
-                saveConfig();
+        // --- VOICE SEARCH ---
+        function setupVoiceSearch() {
+            const micBtn = document.getElementById('micBtn');
+            const micIcon = micBtn.querySelector('i');
+            
+            // Comprobar soporte
+            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                micBtn.style.display = 'none'; // Ocultar si no soporta
+                return;
+            }
+
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const recognition = new SpeechRecognition();
+            
+            recognition.lang = 'es-ES'; // Configurar idioma
+            recognition.continuous = false; // Parar al terminar de hablar
+            recognition.interimResults = false;
+
+            micBtn.addEventListener('click', () => {
+                if (micBtn.classList.contains('listening')) {
+                    recognition.stop();
+                } else {
+                    recognition.start();
+                }
+            });
+
+            recognition.onstart = () => {
+                micBtn.classList.add('listening', 'text-red-500', 'animate-pulse');
+                micIcon.classList.remove('ph-microphone');
+                micIcon.classList.add('ph-stop-circle');
             };
-            input.addEventListener('input', save);
-            input.addEventListener('change', save);
+
+            recognition.onend = () => {
+                micBtn.classList.remove('listening', 'text-red-500', 'animate-pulse');
+                micIcon.classList.add('ph-microphone');
+                micIcon.classList.remove('ph-stop-circle');
+            };
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                const inp = document.getElementById('searchInput');
+                
+                // Llenar input y buscar
+                inp.value = transcript;
+                renderList(transcript);
+                
+                // Mostrar botón de limpiar
+                document.getElementById('clearSearch').classList.remove('hidden');
+            };
+
+            recognition.onerror = (event) => {
+                console.error("Error reconocimiento voz:", event.error);
+                micBtn.classList.remove('listening', 'text-red-500', 'animate-pulse');
+            };
         }
 
-        // --- GESTIÓN DE DATOS ---
-        function loadState() {
-            const storedConfig = localStorage.getItem('app_config');
-            if (storedConfig) {
-                try {
-                    const parsed = JSON.parse(storedConfig);
-                    state.config = { ...state.config, ...parsed };
-                } catch (e) { console.error(e); }
+        // --- THEMING LOGIC ---
+        function hexToHSL(hex) {
+            let r = 0, g = 0, b = 0;
+            if (hex.length === 4) {
+                r = "0x" + hex[1] + hex[1]; g = "0x" + hex[2] + hex[2]; b = "0x" + hex[3] + hex[3];
+            } else if (hex.length === 7) {
+                r = "0x" + hex[1] + hex[2]; g = "0x" + hex[3] + hex[4]; b = "0x" + hex[5] + hex[6];
+            }
+            r /= 255; g /= 255; b /= 255;
+            let cmin = Math.min(r,g,b), cmax = Math.max(r,g,b), delta = cmax - cmin;
+            let h = 0, s = 0, l = 0;
+
+            if (delta === 0) h = 0;
+            else if (cmax === r) h = ((g - b) / delta) % 6;
+            else if (cmax === g) h = (b - r) / delta + 2;
+            else h = (r - g) / delta + 4;
+            h = Math.round(h * 60); if (h < 0) h += 360;
+            l = (cmax + cmin) / 2;
+            s = delta === 0 ? 0 : delta / (1 - Math.abs(2 * l - 1));
+            s = +(s * 100).toFixed(1); l = +(l * 100).toFixed(1);
+            return { h, s, l };
+        }
+
+        function updateThemePreview(hexColor) {
+            state.theme.primary = hexColor;
+            applyThemeUI(); // Live preview
+            saveConfig();
+        }
+
+        function toggleDarkMode(isDark) {
+            state.theme.darkMode = isDark;
+            applyThemeUI();
+            saveConfig();
+        }
+
+        function resetTheme() {
+            state.theme = { ...defaultTheme };
+            document.getElementById('brandColorInput').value = state.theme.primary;
+            document.getElementById('businessNameInput').value = '';
+            document.getElementById('logoUrlInput').value = '';
+            document.getElementById('darkModeToggle').checked = false;
+            applyThemeUI();
+            saveConfig();
+        }
+
+        function applyThemeUI() {
+            const t = state.theme;
+            const root = document.documentElement;
+
+            // 1. Dark Mode Class
+            if (t.darkMode) {
+                document.body.classList.add('dark-mode');
+                // Adjust colors for dark mode logic
+                // If user picks a color, we might need to lighten it for dark mode visibility
+                const hsl = hexToHSL(t.primary);
+                // Simple logic: If lightness < 50 in dark mode, boost it to 60 for visibility
+                const primaryHex = (t.darkMode && hsl.l < 40) ? `hsl(${hsl.h}, ${hsl.s}%, 60%)` : t.primary;
+                root.style.setProperty('--primary', primaryHex);
+                // Container darker in dark mode
+                root.style.setProperty('--primary-container', `hsl(${hsl.h}, ${hsl.s}%, 20%)`);
+                root.style.setProperty('--on-primary-container', `hsl(${hsl.h}, ${hsl.s}%, 90%)`);
+                
+            } else {
+                document.body.classList.remove('dark-mode');
+                // Light Mode Logic
+                const hsl = hexToHSL(t.primary);
+                root.style.setProperty('--primary', t.primary);
+                // Container lighter
+                root.style.setProperty('--primary-container', `hsl(${hsl.h}, ${hsl.s}%, 90%)`);
+                root.style.setProperty('--on-primary-container', `hsl(${hsl.h}, 100%, 10%)`);
             }
 
-            if (!state.config.url && URL_FIJA_CSV) {
-                state.config.url = URL_FIJA_CSV;
-            }
+            // 2. Identity
+            const name = t.businessName || "Presupuestos";
+            document.getElementById('brandNameDisplay').textContent = name;
             
-            const storedProducts = localStorage.getItem('app_products');
-            if (storedProducts) {
-                try {
-                    state.products = JSON.parse(storedProducts);
-                } catch(e) {}
+            const logoContainer = document.getElementById('brandLogoContainer');
+            if (t.logoUrl) {
+                logoContainer.innerHTML = `<img src="${t.logoUrl}" class="w-full h-full object-cover" onerror="this.style.display='none'; this.parentElement.innerHTML='<i class=\\'ph-fill ph-whatsapp-logo text-2xl\\'></i>'">`;
+            } else {
+                logoContainer.innerHTML = `<i class="ph-fill ph-whatsapp-logo text-2xl"></i>`;
             }
 
-            document.getElementById('csvUrlInput').value = state.config.url || '';
+            // 3. Inputs Sync (in case function called from loadState)
+            if(document.getElementById('brandColorInput')) {
+                document.getElementById('brandColorInput').value = t.primary;
+                document.getElementById('darkModeToggle').checked = t.darkMode;
+                document.getElementById('businessNameInput').value = t.businessName === "Presupuestos" ? "" : t.businessName;
+                document.getElementById('logoUrlInput').value = t.logoUrl;
+            }
+        }
+
+        // --- DATA SAVING ---
+        function loadState() {
+            try {
+                const cfg = JSON.parse(localStorage.getItem('app_config') || '{}');
+                state.config = { ...state.config, ...cfg };
+                if(!state.config.url) state.config.url = URL_FIJA_CSV;
+
+                // Load Theme
+                const savedTheme = JSON.parse(localStorage.getItem('app_theme') || 'null');
+                if(savedTheme) state.theme = { ...defaultTheme, ...savedTheme };
+
+                const prods = JSON.parse(localStorage.getItem('app_products') || '[]');
+                if(prods.length) { state.products = prods; buildGroups(); }
+
+                state.saved = JSON.parse(localStorage.getItem('app_saved_budgets') || '[]');
+            } catch(e) { console.error(e); }
+
+            if(document.getElementById('csvUrlInput')) document.getElementById('csvUrlInput').value = state.config.url;
             updateLastUpdatedLabel();
         }
 
-        function saveConfig() {
-            localStorage.setItem('app_config', JSON.stringify(state.config));
+        function saveConfig() { 
+            localStorage.setItem('app_config', JSON.stringify(state.config)); 
+            localStorage.setItem('app_theme', JSON.stringify(state.theme)); 
         }
 
-        function updateLastUpdatedLabel() {
-            const dateSpan = document.getElementById('lastUpdatedDate');
-            if (state.config.lastUpdated === 0) {
-                dateSpan.textContent = "Nunca";
-            } else {
-                const date = new Date(state.config.lastUpdated);
-                dateSpan.textContent = date.toLocaleString('es-AR');
-            }
+        // --- LISTENERS ---
+        function setupConfigListeners() {
+            // Business Name
+            const nameInput = document.getElementById('businessNameInput');
+            nameInput.addEventListener('input', (e) => {
+                state.theme.businessName = e.target.value.trim() || "Presupuestos";
+                document.getElementById('brandNameDisplay').textContent = state.theme.businessName;
+                saveConfig();
+            });
+
+            // Logo URL
+            const logoInput = document.getElementById('logoUrlInput');
+            logoInput.addEventListener('change', (e) => {
+                state.theme.logoUrl = e.target.value.trim();
+                applyThemeUI();
+                saveConfig();
+            });
+
+            // CSV URL
+            const csvInput = document.getElementById('csvUrlInput');
+            csvInput.addEventListener('change', (e) => {
+                state.config.url = e.target.value.trim();
+                saveConfig();
+            });
         }
+
+        // --- STANDARD APP LOGIC (Fetch, Render, Cart, etc.) ---
+        // (Same logic as v3.2 but ensuring classes use new CSS variables)
 
         async function fetchData() {
-            let url = document.getElementById('csvUrlInput').value.trim();
-            if (!url && URL_FIJA_CSV) url = URL_FIJA_CSV;
-
-            if (!url) return showToast("Ingresa una URL válida");
-
-            document.getElementById('csvUrlInput').value = url;
-            state.config.url = url;
-            saveConfig();
-
             const btn = document.querySelector('#configModal button i.ph-arrows-clockwise');
             btn.classList.add('animate-spin');
+            
+            let url = document.getElementById('csvUrlInput').value.trim() || URL_FIJA_CSV;
+            state.config.url = url; saveConfig();
 
             try {
-                // CAMBIO: Cache Busting para el CSV (Forzar nueva versión)
-                // Se agrega un parámetro ?t=timestamp al final para que el navegador crea que es un archivo nuevo
-                const cacheBusterUrl = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
-                const response = await fetch(cacheBusterUrl);
-                
-                if (!response.ok) throw new Error("Error de red");
-                const text = await response.text();
-                
-                parseCSV(text);
+                const res = await fetch(url + (url.includes('?')?'&':'?') + 't=' + Date.now());
+                if(!res.ok) throw new Error("Network error");
+                const txt = await res.text();
+                parseCSV(txt);
                 
                 state.config.lastUpdated = Date.now();
                 saveConfig();
-                
                 localStorage.setItem('app_products', JSON.stringify(state.products));
                 
                 updateLastUpdatedLabel();
                 renderList();
                 checkStaleData();
-                toggleConfig(); 
-                showToast(`Se cargaron ${state.products.length} productos`);
-
-            } catch (error) {
-                let msg = "Error al cargar el CSV: " + error.message;
-                
-                const isLocal = window.location.protocol === 'file:' || window.location.protocol === 'content:';
-                
-                if (isLocal && (error.message.includes('Failed to fetch') || error.message.includes('NetworkError'))) {
-                    msg = "⚠️ ERROR DE SEGURIDAD (CORS)\n\n" +
-                          "Estás abriendo el archivo directamente desde tu celular.\n" +
-                          "Por seguridad, los navegadores bloquean la conexión a internet de archivos locales.\n\n" +
-                          "SOLUCIÓN: Sube este archivo a Netlify Drop o GitHub Pages para que tenga una dirección 'https://'.";
-                }
-                
-                alert(msg);
-                console.error(error);
+                toggleConfig();
+                showToast("Catálogo actualizado");
+            } catch(e) {
+                alert("Error: " + e.message);
             } finally {
                 btn.classList.remove('animate-spin');
             }
         }
 
-        function parseCSV(csvText) {
-            const lines = csvText.split(/\r\n|\n/);
-            const products = [];
-            
-            lines.forEach((line, index) => {
-                if (!line.trim()) return;
-
-                const cols = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(col => {
-                    return col.trim().replace(/^"|"$/g, '').replace(/""/g, '"');
-                });
+        function parseCSV(text) {
+            const lines = text.split(/\r\n|\n/);
+            state.products = [];
+            lines.forEach((line, i) => {
+                if(!line.trim()) return;
+                const cols = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(c => c.trim().replace(/^"|"$/g, '').replace(/""/g, '"'));
+                if(cols.length < 3) return;
                 
-                if (cols.length >= 2) {
-                    const name = cols[0];
-                    const priceStr = cols[1];
-                    let presentation = '';
-                    if (cols.length >= 3) presentation = cols[2];
+                const price = parseFloat(cols[2].replace(/[$.]/g,'').replace(',','.'));
+                if(isNaN(price) || price <= 0) return;
 
-                    // NUEVO: Columna de fecha de actualización (índice 3)
-                    let lastUpdate = '';
-                    if (cols.length >= 4) lastUpdate = cols[3];
-                    
-                    const price = parseLocaleNumber(priceStr);
-
-                    if (name && !isNaN(price) && price > 0) {
-                        const searchString = normalize(name + ' ' + presentation);
-                        products.push({
-                            id: index,
-                            name: name,
-                            price: price,
-                            priceRaw: priceStr,
-                            presentation: presentation,
-                            lastUpdate: lastUpdate, // Guardamos la fecha
-                            searchString: searchString
-                        });
-                    }
-                }
+                state.products.push({
+                    id: i, code: cols[0], name: cols[1], price: price,
+                    presentation: cols[3] || '', lastUpdate: cols[4] || '',
+                    searchString: normalize(`${cols[0]} ${cols[1]} ${cols[3]||''}`)
+                });
             });
-
-            state.products = products;
+            buildGroups();
         }
 
-        function parseLocaleNumber(stringNumber) {
-            let clean = stringNumber.replace(/[$ "\s]/g, '');
-            if (clean.indexOf('.') !== -1 && clean.indexOf(',') !== -1) {
-                clean = clean.replace(/\./g, '').replace(',', '.');
-            } else if (clean.indexOf(',') !== -1) {
-                clean = clean.replace(',', '.');
-            } else if (clean.indexOf('.') !== -1) {
-                clean = clean.replace(/\./g, '');
-            }
-            return parseFloat(clean);
+        function buildGroups() {
+            const map = new Map();
+            state.products.forEach(p => {
+                const k = normalize(p.name);
+                if(!map.has(k)) map.set(k, { name: p.name, ids: [], searchString: '' });
+                const g = map.get(k);
+                g.ids.push(p.id);
+                g.searchString += ' ' + p.searchString;
+            });
+            state.groups = Array.from(map.values()).map((g, i) => ({ ...g, groupIndex: i, activeIndex: 0 }));
         }
 
-        function checkStaleData() {
-            const alert = document.getElementById('staleDataAlert');
-            const oneDay = 24 * 60 * 60 * 1000;
-            if (state.config.lastUpdated > 0 && (Date.now() - state.config.lastUpdated > oneDay)) {
-                alert.classList.remove('hidden');
-            } else {
-                alert.classList.add('hidden');
-            }
-        }
-
-        // --- RENDERIZADO OPTIMIZADO ---
-        function renderList(filterText = '') {
+        function renderList(filter = '') {
             const list = document.getElementById('productList');
             const limitMsg = document.getElementById('limitMessage');
             list.innerHTML = '';
+            
+            const term = normalize(filter).trim().split(/\s+/);
+            const filtered = filter ? state.groups.filter(g => term.every(t => g.searchString.includes(t))) : state.groups;
 
-            const cleanFilter = normalize(filterText).trim();
-            let filtered = state.products;
-
-            if (cleanFilter) {
-                const terms = cleanFilter.split(/\s+/);
-                filtered = state.products.filter(p => {
-                    return terms.every(term => p.searchString.includes(term));
-                });
-            }
-
-            if (filtered.length === 0) {
-                list.innerHTML = `<div class="col-span-full text-center text-gray-400 mt-10">No se encontraron productos</div>`;
+            if(!filtered.length) {
+                list.innerHTML = `<div class="col-span-full py-12 text-center text-sub opacity-70"><i class="ph ph-magnifying-glass text-4xl mb-2"></i><p>Sin resultados</p></div>`;
                 limitMsg.classList.add('hidden');
                 return;
             }
 
-            const MAX_ITEMS = 100;
-            const itemsToShow = filtered.slice(0, MAX_ITEMS);
-            
-            if (filtered.length > MAX_ITEMS) {
-                limitMsg.classList.remove('hidden');
-            } else {
-                limitMsg.classList.add('hidden');
-            }
+            const page = filtered.slice(0, 100);
+            limitMsg.classList.toggle('hidden', filtered.length <= 100);
 
-            const fragment = document.createDocumentFragment();
-
-            itemsToShow.forEach(p => {
+            const frag = document.createDocumentFragment();
+            page.forEach(g => {
+                const activeId = g.ids[g.activeIndex];
+                const p = state.products.find(x => x.id === activeId);
                 const qty = state.cart[p.id] || 0;
                 const isSelected = qty > 0;
-                
-                const el = document.createElement('div');
-                el.id = `card-${p.id}`;
-                el.className = `p-3 rounded-xl shadow-sm border card-transition cursor-pointer select-none flex flex-col justify-between h-full ${isSelected ? 'bg-green-50 border-[#25D366] ring-1 ring-[#25D366]' : 'bg-white border-gray-200 hover:border-gray-300'}`;
-                el.onclick = (e) => handleCardClick(e, p.id);
 
-                const formattedPrice = formatMoney(p.price);
-                const presentationBadge = p.presentation 
-                    ? `<span class="inline-block mt-1 bg-gray-100 text-gray-500 text-[10px] font-semibold px-2 py-0.5 rounded border border-gray-200 uppercase tracking-wide">${p.presentation}</span>` 
-                    : '';
-                
-                // NUEVO: Mostrar fecha si existe
-                const dateText = p.lastUpdate
-                    ? `<span class="text-[10px] text-gray-400 mt-0.5 block">Act: ${p.lastUpdate}</span>`
-                    : '';
+                const card = document.createElement('div');
+                card.className = `md-card p-4 relative ripple-container cursor-pointer select-none flex flex-col justify-between h-full border border-transparent ${isSelected ? 'selected' : ''}`;
+                card.onclick = (e) => {
+                    if(e.target.closest('.no-card-click')) return;
+                    handleCardClick(p.id);
+                };
 
-                el.innerHTML = `
-                    <div class="flex-1 w-full flex flex-col items-start">
-                        <h3 id="name-${p.id}" class="font-medium text-gray-800 text-sm leading-snug w-full line-clamp-2 ${isSelected ? 'text-[#008069] font-bold' : ''}">${p.name}</h3>
-                        ${presentationBadge}
-                        <div class="mt-2 w-full">
-                            <p class="text-[#008069] font-bold text-base leading-none">${formattedPrice}</p>
-                            ${dateText}
+                let variants = '';
+                if(g.ids.length > 1) {
+                    variants = `<div class="flex gap-1 mb-3 overflow-x-auto no-scrollbar no-card-click">`;
+                    g.ids.forEach((vid, idx) => {
+                        const vp = state.products.find(x => x.id === vid);
+                        const label = vp.presentation || `Opción ${idx+1}`;
+                        variants += `<div onclick="setVariant(${g.groupIndex}, ${idx})" class="variant-pill ${idx === g.activeIndex ? 'active' : 'inactive'}">${label}</div>`;
+                    });
+                    variants += `</div>`;
+                }
+
+                const price = formatMoney(p.price);
+
+                card.innerHTML = `
+                    <div class="mb-2">
+                        <div class="flex justify-between items-start">
+                            <span class="text-[10px] font-bold text-sub bg-surface-container-high px-1.5 py-0.5 rounded tracking-wider mb-1">${p.code || '#'}</span>
                         </div>
+                        <h3 class="text-xs md:text-[15px] font-medium text-on-surface leading-tight md:leading-snug line-clamp-2">${p.name}</h3>
+                        ${!variants && p.presentation ? `<span class="text-[11px] md:text-xs text-sub mt-1 block">${p.presentation}</span>` : ''}
                     </div>
-                    
-                    <div id="controls-${p.id}" class="${isSelected ? 'flex' : 'hidden'} items-center justify-between w-full mt-3 bg-white/50 rounded-lg p-1 gap-2" onclick="event.stopPropagation()">
-                        <button class="w-8 h-8 flex-shrink-0 flex items-center justify-center bg-white border border-gray-200 shadow-sm rounded-lg text-gray-600 active:bg-gray-100" onclick="updateQty(${p.id}, -1)">
-                            <i class="ph ph-minus font-bold text-xs"></i>
-                        </button>
-                        <span id="qty-${p.id}" class="flex-1 text-center font-bold text-base min-w-[20px]">${qty}</span>
-                        <button class="w-8 h-8 flex-shrink-0 flex items-center justify-center bg-[#25D366] text-white shadow-sm rounded-lg active:bg-[#1da851]" onclick="updateQty(${p.id}, 1)">
-                            <i class="ph ph-plus font-bold text-xs"></i>
-                        </button>
+                    ${variants}
+                    <div class="mt-auto flex items-end justify-between">
+                        <span class="text-lg font-normal text-primary tracking-tight">${price}</span>
+                        ${isSelected ? `
+                        <div class="flex items-center bg-secondary-container rounded-full px-1 py-1 gap-2 no-card-click animate-fade-in">
+                            <button onclick="updQty(${p.id}, -1)" class="w-7 h-7 bg-surface rounded-full flex items-center justify-center text-primary shadow-sm active:scale-90 transition"><i class="ph-bold ph-minus text-xs"></i></button>
+                            <span class="text-sm font-bold text-on-surface w-4 text-center">${qty}</span>
+                            <button onclick="updQty(${p.id}, 1)" class="w-7 h-7 bg-primary rounded-full flex items-center justify-center text-on-primary shadow-sm active:scale-90 transition"><i class="ph-bold ph-plus text-xs"></i></button>
+                        </div>` : 
+                        `<button class="w-8 h-8 rounded-full bg-surface-container-high text-primary flex items-center justify-center hover:bg-secondary-container transition"><i class="ph-bold ph-plus"></i></button>`}
                     </div>
                 `;
-                fragment.appendChild(el);
+                frag.appendChild(card);
             });
-
-            list.appendChild(fragment);
+            list.appendChild(frag);
         }
 
-        // --- FUNCIONES CARRITO VISTA ---
+        function setVariant(gIdx, vIdx) { state.groups[gIdx].activeIndex = vIdx; renderList(document.getElementById('searchInput').value); }
+        function handleCardClick(id) { if(!state.cart[id]) updQty(id, 1); }
+
+        function updQty(id, delta) {
+            const curr = state.cart[id] || 0;
+            const next = curr + delta;
+            if(next <= 0) delete state.cart[id]; else state.cart[id] = next;
+            const search = document.getElementById('searchInput').value;
+            renderList(search);
+            updateCartUI();
+            if(Object.keys(state.cart).length === 1 && next > 0 && delta > 0) {
+                const p = state.products.find(x => x.id === id);
+                copyToClip(`${next} x ${p.code ? '['+p.code+'] ' : ''}${p.name}: ${formatMoney(p.price * next)}`, "Copiado");
+            }
+        }
+
+        function updateCartUI() {
+            const items = Object.entries(state.cart);
+            const count = items.reduce((a, [_, q]) => a + q, 0);
+            const total = items.reduce((a, [id, q]) => { const p = state.products.find(x => x.id == id); return a + (p ? p.price * q : 0); }, 0);
+            
+            document.getElementById('itemCount').textContent = count + (count===1 ? ' ÍTEM' : ' ÍTEMS');
+            document.getElementById('totalAmount').textContent = formatMoney(total);
+            document.getElementById('cartModalTotal').textContent = formatMoney(total);
+            
+            const footer = document.getElementById('cartFooter');
+            count > 0 ? footer.classList.remove('translate-y-full') : footer.classList.add('translate-y-full');
+            renderCartModalList();
+        }
+
+        function renderCartModalList() {
+            const list = document.getElementById('cartListContainer');
+            list.innerHTML = '';
+            Object.entries(state.cart).forEach(([id, qty]) => {
+                const p = state.products.find(x => x.id == id);
+                if(!p) return;
+                const item = document.createElement('div');
+                item.className = "flex items-center justify-between p-3 bg-surface-container rounded-2xl shadow-sm border border-white/5";
+                item.innerHTML = `
+                    <div class="flex-1 pr-2">
+                        <div class="text-xs text-sub font-mono mb-0.5">${p.code || ''}</div>
+                        <div class="text-sm font-medium text-on-surface leading-tight mb-1">${p.name}</div>
+                        <div class="text-primary font-normal">${formatMoney(p.price)}</div>
+                    </div>
+                    <div class="flex items-center bg-surface-container-high rounded-full p-1 gap-3">
+                        <button onclick="updQty(${p.id}, -1)" class="w-8 h-8 rounded-full bg-surface shadow-sm flex items-center justify-center text-red-400 active:scale-90 transition"><i class="ph-bold ${qty===1?'ph-trash':'ph-minus'}"></i></button>
+                        <span class="font-bold text-on-surface w-4 text-center">${qty}</span>
+                        <button onclick="updQty(${p.id}, 1)" class="w-8 h-8 rounded-full bg-primary shadow-sm flex items-center justify-center text-on-primary active:scale-90 transition"><i class="ph-bold ph-plus text-xs"></i></button>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        }
+
         function toggleCartView() {
             const modal = document.getElementById('cartModal');
-            // Check si está cerrado (tiene translate-y-full)
-            const isClosed = modal.classList.contains('translate-y-full');
+            const backdrop = document.getElementById('cartBackdrop');
+            const isClosed = modal.classList.contains('translate-y-[120%]');
             
-            if (isClosed) {
-                // Abrir: Renderizar y quitar el desplazamiento
-                renderCartView();
-                modal.classList.remove('translate-y-full');
+            if(isClosed) {
+                // Abrir
+                modal.classList.remove('translate-y-[120%]');
+                modal.classList.add('translate-y-0');
+                
+                // Mostrar backdrop
+                backdrop.classList.remove('hidden');
+                // Timeout para permitir que el display:block se aplique antes de la opacidad
+                requestAnimationFrame(() => {
+                    backdrop.classList.remove('opacity-0');
+                    backdrop.classList.add('opacity-100');
+                });
             } else {
-                // Cerrar: Volver a desplazar hacia abajo
-                modal.classList.add('translate-y-full');
+                // Cerrar
+                modal.classList.remove('translate-y-0');
+                modal.classList.add('translate-y-[120%]');
+                
+                // Ocultar backdrop
+                backdrop.classList.remove('opacity-100');
+                backdrop.classList.add('opacity-0');
+                setTimeout(() => {
+                    backdrop.classList.add('hidden');
+                }, 500); // Esperar animación
             }
         }
 
-        function renderCartView() {
-            const container = document.getElementById('cartListContainer');
-            container.innerHTML = '';
+        // --- UTILS & HELPERS ---
+        function formatMoney(n) { return new Intl.NumberFormat('es-AR', {style:'currency', currency:'ARS', maximumFractionDigits:0}).format(n); }
+        function copyToClip(txt, msg) {
+            const el = document.createElement('textarea'); el.value = txt; document.body.appendChild(el); el.select();
+            document.execCommand('copy'); document.body.removeChild(el); showToast(msg || "Copiado");
+        }
+        function showToast(msg) {
+            const t = document.getElementById('toast'); document.getElementById('toastMsg').textContent = msg;
+            t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2500);
+        }
+        function setupSearch() {
+            const inp = document.getElementById('searchInput'); const clr = document.getElementById('clearSearch');
+            inp.addEventListener('input', (e) => { clr.classList.toggle('hidden', !e.target.value); renderList(e.target.value); });
+        }
+        function clearInput() { document.getElementById('searchInput').value = ''; document.getElementById('clearSearch').classList.add('hidden'); renderList(); }
+        
+        function updateLastUpdatedLabel() {
+            const d = state.config.lastUpdated;
+            document.getElementById('lastUpdatedDate').textContent = d ? new Date(d).toLocaleString() : "Nunca";
+            document.getElementById('staleDataAlert').classList.toggle('hidden', !d || (Date.now() - d < 86400000));
+        }
+
+        function checkStaleData() {
+            updateLastUpdatedLabel();
+        }
+
+        let clearStep = 0;
+        function clearData(e) {
+            e.preventDefault(); const btn = document.getElementById('btnClearData');
+            if(clearStep === 0) {
+                btn.textContent = "Confirma: Toca de nuevo para borrar"; btn.classList.add('bg-red-600', 'text-white'); clearStep = 1;
+                setTimeout(() => { if(clearStep===1) { clearStep=0; btn.textContent="Restablecer App"; btn.classList.remove('bg-red-600', 'text-white'); } }, 3000);
+            } else { localStorage.clear(); showToast("Reiniciando..."); setTimeout(() => location.reload(), 1000); }
+        }
+
+        // --- EXPORT/SHARE ---
+        function generateText(clientName) {
+            let txt = `*${state.theme.businessName || "Presupuesto"}*\n`; // Header
+            if (clientName) txt += `Cliente: ${clientName}\n`; // Add client name if provided
+            txt += `\n`; 
+
+            let total = 0;
+            Object.entries(state.cart).forEach(([id, qty]) => {
+                const p = state.products.find(x => x.id == id);
+                if(p) { const sub = p.price * qty; total += sub; txt += `▪️ ${qty} x ${p.code ? '['+p.code+'] ' : ''}${p.name}: ${formatMoney(sub)}\n`; }
+            });
+            txt += `\n*TOTAL: ${formatMoney(total)}*`;
+            return txt;
+        }
+        
+        function copyBudget() { copyToClip(generateText(), "Presupuesto copiado"); }
+        function shareToWhatsApp() { window.open(`https://wa.me/?text=${encodeURIComponent(generateText())}`, '_blank'); }
+
+        function saveCurrentBudget() {
+            if(!Object.keys(state.cart).length) return showToast("Carrito vacío");
+            const name = prompt("Nombre del cliente / Referencia:"); if(!name) return;
+            const total = Object.entries(state.cart).reduce((a, [id, q]) => a + (state.products.find(x=>x.id==id)?.price||0)*q, 0);
             
-            const cartEntries = Object.entries(state.cart);
+            // Pass name to generateText so it's included in the saved text
+            state.saved.unshift({ id: Date.now(), name, date: new Date().toISOString().split('T')[0], total, text: generateText(name) });
+            saveSaved(); showToast("Guardado correctamente");
+        }
+        
+        function saveSaved() {
+            localStorage.setItem('app_saved_budgets', JSON.stringify(state.saved));
+        }
+
+        // --- SAVED BUDGET UTILS ---
+        function copySaved(id) {
+            const s = state.saved.find(x => x.id === id);
+            if(!s) return;
             
-            if (cartEntries.length === 0) {
-                container.innerHTML = `
-                    <div class="col-span-full flex flex-col items-center justify-center h-64 text-gray-400">
-                        <i class="ph ph-shopping-cart text-6xl mb-4 text-gray-300"></i>
-                        <p class="text-lg">Tu carrito está vacío</p>
-                    </div>
-                `;
-                return;
+            // Retroactive fix: if text doesn't have the name, add it on the fly
+            let txt = s.text;
+            if(!txt.includes(`Cliente: ${s.name}`)) {
+                txt = `Cliente: ${s.name}\n${txt}`;
             }
+            copyToClip(txt, "Pedido copiado");
+        }
 
-            cartEntries.forEach(([id, qty]) => {
-                const p = state.products.find(prod => prod.id == id);
-                if (!p) return;
+        function shareSaved(id) {
+            const s = state.saved.find(x => x.id === id);
+            if(!s) return;
+            
+            let txt = s.text;
+            if(!txt.includes(`Cliente: ${s.name}`)) {
+                txt = `Cliente: ${s.name}\n${txt}`;
+            }
+            window.open(`https://wa.me/?text=${encodeURIComponent(txt)}`, '_blank');
+        }
 
-                const subtotal = p.price * qty;
-                const presText = p.presentation ? `<span class="inline-block mt-1 bg-gray-100 text-gray-500 text-[10px] font-semibold px-2 py-0.5 rounded border border-gray-200 uppercase tracking-wide">${p.presentation}</span>` : '';
-                
-                // Mostrar fecha también en carrito si se desea, por ahora mantenemos limpio
-                // const dateText = p.lastUpdate ? `<span class="text-[10px] text-gray-400">Act: ${p.lastUpdate}</span>` : '';
-
-                const el = document.createElement('div');
-                el.className = "p-3 rounded-xl shadow-sm border border-gray-200 bg-white flex flex-col justify-between h-full";
-                
-                el.innerHTML = `
-                    <div class="flex-1 w-full flex flex-col items-start">
-                        <h4 class="font-medium text-gray-800 text-sm leading-snug w-full line-clamp-2">${p.name}</h4>
-                        ${presText}
-                        <div class="mt-2 w-full">
-                            <p class="text-[#008069] font-bold text-base">${formatMoney(p.price)}</p>
-                            <p class="text-xs text-gray-400 mt-0.5">Total: ${formatMoney(subtotal)}</p>
+        // --- SAVED MODAL & CONFIG MODAL TOGGLES ---
+        function toggleSavedModal() {
+            const m = document.getElementById('savedModal'); const c = document.getElementById('savedModalContent');
+            if(m.classList.contains('hidden')) {
+                m.classList.remove('hidden'); requestAnimationFrame(() => { c.classList.remove('scale-95', 'opacity-0'); c.classList.add('scale-100', 'opacity-100'); }); applySavedFilters();
+            } else { c.classList.remove('scale-100', 'opacity-100'); c.classList.add('scale-95', 'opacity-0'); setTimeout(() => m.classList.add('hidden'), 300); }
+        }
+        function toggleConfig() {
+            const m = document.getElementById('configModal'); const c = document.getElementById('configModalContent');
+            if(m.classList.contains('hidden')) {
+                m.classList.remove('hidden'); requestAnimationFrame(() => { c.classList.remove('scale-95', 'opacity-0'); c.classList.add('scale-100', 'opacity-100'); });
+            } else { c.classList.remove('scale-100', 'opacity-100'); c.classList.add('scale-95', 'opacity-0'); setTimeout(() => m.classList.add('hidden'), 300); }
+        }
+        
+        function applySavedFilters() { 
+             const search = normalize(document.getElementById('savedSearchInput').value);
+             const date = document.getElementById('savedDateInput').value;
+             const list = document.getElementById('savedListContainer'); list.innerHTML = '';
+             const filtered = state.saved.filter(s => (!search || normalize(s.name).includes(search)) && (!date || s.date === date));
+             
+             if(!filtered.length) { 
+                 list.innerHTML = `<div class="text-center py-10 text-sub opacity-50"><i class="ph ph-ghost text-4xl"></i><p>Nada por aquí</p></div>`; 
+                 return; 
+             }
+             
+             filtered.forEach(s => {
+                 const el = document.createElement('div'); 
+                 el.className = "bg-surface-container p-4 rounded-2xl border border-white/5 shadow-sm mb-2 transition-all duration-300";
+                 
+                 const detailsId = `details-${s.id}`;
+                 
+                 el.innerHTML = `
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <h4 class="font-medium text-on-surface">${s.name}</h4>
+                            <span class="text-xs text-sub bg-surface-high px-2 py-0.5 rounded-md">${s.date}</span>
                         </div>
+                        <span class="font-bold text-primary">${formatMoney(s.total)}</span>
                     </div>
                     
-                    <div class="flex items-center justify-between w-full mt-3 bg-gray-50 rounded-lg p-1 gap-2">
-                        <button class="w-8 h-8 flex-shrink-0 flex items-center justify-center bg-white border border-gray-200 shadow-sm rounded-lg text-gray-600 active:bg-gray-100" onclick="updateQty(${p.id}, -1)">
-                            <i class="ph ${qty === 1 ? 'ph-trash text-red-500' : 'ph-minus'} font-bold text-xs"></i>
+                    <div id="${detailsId}" class="hidden text-xs text-sub font-mono bg-surface-high p-3 rounded-xl mb-3 whitespace-pre-wrap border border-white/5">
+                        ${s.text}
+                    </div>
+
+                    <div class="flex gap-2">
+                        <button onclick="shareSaved(${s.id})" class="flex-1 h-9 bg-primary text-on-primary rounded-lg text-xs font-medium flex items-center justify-center gap-1 ripple-container">
+                            <i class="ph-bold ph-whatsapp-logo"></i> WhatsApp
                         </button>
-                        <span class="flex-1 text-center font-bold text-base min-w-[20px]">${qty}</span>
-                        <button class="w-8 h-8 flex-shrink-0 flex items-center justify-center bg-[#25D366] text-white shadow-sm rounded-lg active:bg-[#1da851]" onclick="updateQty(${p.id}, 1)">
-                            <i class="ph ph-plus font-bold text-xs"></i>
+                        
+                        <button onclick="toggleDetails('${detailsId}')" class="w-9 h-9 bg-surface-high text-on-surface rounded-lg flex items-center justify-center ripple-container border border-white/10" title="Ver detalles">
+                            <i class="ph-bold ph-eye"></i>
+                        </button>
+
+                        <button onclick="copySaved(${s.id})" class="w-9 h-9 bg-surface-high text-on-surface rounded-lg flex items-center justify-center ripple-container border border-white/10" title="Copiar">
+                            <i class="ph-bold ph-copy"></i>
+                        </button>
+                        
+                        <button onclick="deleteSaved(${s.id})" class="w-9 h-9 bg-red-100 text-red-600 rounded-lg flex items-center justify-center ripple-container">
+                            <i class="ph-bold ph-trash"></i>
                         </button>
                     </div>
-                `;
-                container.appendChild(el);
-            });
+                 `;
+                 list.appendChild(el);
+             });
         }
 
-        function formatMoney(amount) {
-            return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(amount);
+        function toggleDetails(id) {
+            const el = document.getElementById(id);
+            if(el) el.classList.toggle('hidden');
         }
 
-        // --- LÓGICA DE INTERACCIÓN OPTIMIZADA ---
-        
-        function handleCardClick(e, id) {
-            if (!state.cart[id]) {
-                updateQty(id, 1);
-            }
-        }
+        function deleteSaved(id) { if(confirm("¿Borrar?")) { state.saved = state.saved.filter(s => s.id !== id); saveSaved(); applySavedFilters(); } }
 
-        function updateQty(id, change) {
-            const current = state.cart[id] || 0;
-            const newQty = current + change;
-
-            // Actualizar datos
-            if (newQty <= 0) {
-                delete state.cart[id];
-            } else {
-                state.cart[id] = newQty;
-            }
-
-            // 1. Actualizar Tarjeta del Catálogo (DOM Directo)
-            const cardEl = document.getElementById(`card-${id}`);
-            if (cardEl) {
-                const nameEl = document.getElementById(`name-${id}`);
-                const controlsEl = document.getElementById(`controls-${id}`);
-                const qtyEl = document.getElementById(`qty-${id}`);
-
-                if (newQty > 0) {
-                    cardEl.className = `p-3 rounded-xl shadow-sm border card-transition cursor-pointer select-none flex flex-col justify-between h-full bg-green-50 border-[#25D366] ring-1 ring-[#25D366]`;
-                    nameEl.classList.add('text-[#008069]', 'font-bold');
-                    controlsEl.classList.remove('hidden');
-                    controlsEl.classList.add('flex');
-                    qtyEl.textContent = newQty;
-                } else {
-                    cardEl.className = `p-3 rounded-xl shadow-sm border card-transition cursor-pointer select-none flex flex-col justify-between h-full bg-white border-gray-200 hover:border-gray-300`;
-                    nameEl.classList.remove('text-[#008069]', 'font-bold');
-                    controlsEl.classList.add('hidden');
-                    controlsEl.classList.remove('flex');
-                }
-            }
-
-            // 2. Si el Modal del Carrito está abierto, lo actualizamos también
-            const cartModal = document.getElementById('cartModal');
-            if (!cartModal.classList.contains('translate-y-full')) {
-                renderCartView();
-            }
-
-            // 3. Actualizar Footers
-            updateFooter();
-            
-            // Lógica de auto-copiado (mantenida)
-            const cartKeys = Object.keys(state.cart);
-            if (cartKeys.length === 1 && newQty > 0) {
-                autoCopySingleItem(id, newQty);
-            }
-        }
-
-        function clearInput() {
-            const input = document.getElementById('searchInput');
-            input.value = '';
-            input.focus();
-            renderList(); // Aquí sí necesitamos render completo porque cambia la búsqueda
-            document.getElementById('clearSearch').classList.add('hidden');
-        }
-
-        function setupSearch() {
-            const input = document.getElementById('searchInput');
-            const clearBtn = document.getElementById('clearSearch');
-
-            // Pequeño debounce para no saturar al escribir muy rápido
-            let timeout = null;
-            input.addEventListener('input', (e) => {
-                const val = e.target.value;
-                if (val) clearBtn.classList.remove('hidden');
-                else clearBtn.classList.add('hidden');
-                
-                clearTimeout(timeout);
-                timeout = setTimeout(() => {
-                    renderList(val);
-                }, 50); // 50ms de espera es imperceptible pero ayuda
-            });
-        }
-
-        // --- LÓGICA DE CARRITO Y PORTAPAPELES ---
-
-        function updateFooter() {
-            const footer = document.getElementById('cartFooter');
-            const countEl = document.getElementById('itemCount');
-            const totalEl = document.getElementById('totalAmount');
-            const cartTotalEl = document.getElementById('cartModalTotal');
-            
-            const cartEntries = Object.entries(state.cart);
-            
-            if (cartEntries.length === 0) {
-                footer.classList.add('translate-y-full');
-                return;
-            }
-
-            footer.classList.remove('translate-y-full');
-
-            let totalItems = 0;
-            let totalMoney = 0;
-
-            cartEntries.forEach(([id, qty]) => {
-                const product = state.products.find(p => p.id == id);
-                if (product) {
-                    totalItems += qty;
-                    totalMoney += (product.price * qty);
-                }
-            });
-
-            const textCount = `${totalItems} ${totalItems === 1 ? 'ítem' : 'ítems'}`;
-            const textMoney = formatMoney(totalMoney);
-
-            countEl.textContent = textCount;
-            totalEl.textContent = textMoney;
-            
-            // Actualizar también el total dentro del modal del carrito
-            if (cartTotalEl) cartTotalEl.textContent = textMoney;
-        }
-
-        function autoCopySingleItem(id, qty) {
-            const product = state.products.find(p => p.id == id);
-            if (!product) return;
-            const total = product.price * qty;
-            const presText = product.presentation ? ` (${product.presentation})` : '';
-            const text = `${qty} x ${product.name}${presText}: ${formatMoney(total)}`;
-            copyTextToClipboard(text, "Copiado: " + text);
-        }
-
-        function generateBudgetText() {
-            let text = "*Presupuesto:*\n";
-            let grandTotal = 0;
-            Object.entries(state.cart).forEach(([id, qty]) => {
-                const product = state.products.find(p => p.id == id);
-                if (product) {
-                    const subtotal = product.price * qty;
-                    grandTotal += subtotal;
-                    const presText = product.presentation ? ` (${product.presentation})` : '';
-                    text += `▪️ ${qty} x ${product.name}${presText}: ${formatMoney(subtotal)}\n`;
-                }
-            });
-            text += `\n*TOTAL: ${formatMoney(grandTotal)}*`;
-            return text;
-        }
-
-        function copyBudget() {
-            const text = generateBudgetText();
-            copyTextToClipboard(text, "Presupuesto copiado a WhatsApp");
-        }
-
-        function shareToWhatsApp() {
-            const text = generateBudgetText();
-            const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
-            window.open(url, '_blank');
-        }
-
-        function copyTextToClipboard(text, successMsg) {
-            const textArea = document.createElement("textarea");
-            textArea.value = text;
-            textArea.style.position = "fixed";
-            textArea.style.left = "-9999px";
-            textArea.style.top = "0";
-            document.body.appendChild(textArea);
-            textArea.focus();
-            textArea.select();
-            try {
-                const successful = document.execCommand('copy');
-                if (successful) showToast(successMsg);
-                else showToast("No se pudo copiar automáticamente");
-            } catch (err) {
-                console.error('Error al copiar', err);
-                showToast("Error al intentar copiar");
-            }
-            document.body.removeChild(textArea);
-        }
-
-        function toggleConfig() {
-            const modal = document.getElementById('configModal');
-            modal.classList.toggle('hidden');
-        }
-
-        function showToast(msg) {
-            const toast = document.getElementById('toast');
-            const msgEl = document.getElementById('toastMsg');
-            msgEl.textContent = msg;
-            toast.classList.add('show');
-            if (window.toastTimeout) clearTimeout(window.toastTimeout);
-            window.toastTimeout = setTimeout(() => {
-                toast.classList.remove('show');
-            }, 2500);
-        }
-
-        function clearData() {
-            if(confirm('¿Borrar caché y reiniciar configuración?')) {
-                // Borrar LocalStorage
-                localStorage.removeItem('app_config');
-                localStorage.removeItem('app_products');
-                localStorage.removeItem('tutorial_seen');
-                
-                // CAMBIO: Desregistrar Service Workers viejos
-                if ('serviceWorker' in navigator) {
-                    navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                        for(let registration of registrations) {
-                            registration.unregister();
-                        }
-                    });
-                }
-                
-                if (URL_FIJA_CSV) {
-                    alert("Se han borrado los datos locales. La App se reiniciará con la URL fija del código.");
-                }
-                location.reload();
-            }
+        // --- TUTORIAL ---
+        const tutorialSteps = [
+            { icon: "ph-sparkle", title: "Personalízala", text: "Usa el engranaje ⚙️ para cambiar colores, modo oscuro y logo.", btn: "Siguiente" },
+            { icon: "ph-magnifying-glass", title: "Busca Rápido", text: "Encuentra productos por nombre o código en la barra superior.", btn: "Entendido" }
+        ];
+        let tutIdx = 0;
+        function startTutorial() { tutIdx=0; renderTut(); document.getElementById('tutorialModal').classList.remove('hidden'); }
+        function closeTutorial(save) { document.getElementById('tutorialModal').classList.add('hidden'); if(save) localStorage.setItem('tutorial_seen','true'); }
+        function nextTutorialStep() { if(tutIdx < tutorialSteps.length-1) { tutIdx++; renderTut(); } else closeTutorial(true); }
+        function renderTut() {
+            const s = tutorialSteps[tutIdx];
+            document.getElementById('tutIcon').className = `ph-duotone ${s.icon} text-5xl text-on-primary`;
+            document.getElementById('tutTitle').innerText = s.title; document.getElementById('tutText').innerText = s.text; document.getElementById('tutBtnText').innerText = s.btn;
+            document.getElementById('tutorialDots').innerHTML = tutorialSteps.map((_,i) => `<div class="w-2 h-2 rounded-full transition-all ${i===tutIdx?'bg-primary-container w-6':'bg-surface-container-high'}"></div>`).join('');
         }
     </script>
 </body>
 </html>
+
+
+
